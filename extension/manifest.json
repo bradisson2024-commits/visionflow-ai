@@ -4,11 +4,22 @@
   "short_name": "RaulitoShow IA",
   "version": "1.0.0",
   "description": "RaulitoShow IA: automatiza tus prompts en Google Flow desde un panel lateral, con personaje de referencia, ritmo seguro y guardado por escenas.",
-  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
-  "action": { "default_title": "Abrir RaulitoShow IA" },
-  "side_panel": { "default_path": "sidepanel.html" },
-  "background": { "service_worker": "background.js" },
-  "permissions": ["sidePanel", "storage", "unlimitedStorage", "downloads", "tabs"],
+  "action": {
+    "default_title": "Abrir RaulitoShow IA"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "unlimitedStorage",
+    "downloads",
+    "tabs"
+  ],
   "host_permissions": [
     "https://labs.google/*",
     "https://*.googleusercontent.com/*",
@@ -17,8 +28,14 @@
   ],
   "content_scripts": [
     {
-      "matches": ["https://labs.google/fx/tools/flow*", "https://labs.google/fx/*/tools/flow*"],
-      "js": ["config.js", "content.js"],
+      "matches": [
+        "https://labs.google/fx/tools/flow*",
+        "https://labs.google/fx/*/tools/flow*"
+      ],
+      "js": [
+        "config.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]
