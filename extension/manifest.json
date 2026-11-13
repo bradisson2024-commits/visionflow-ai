@@ -34,6 +34,7 @@
       ],
       "js": [
         "config.js",
+        "engine.js",
         "content.js"
       ],
       "run_at": "document_idle"

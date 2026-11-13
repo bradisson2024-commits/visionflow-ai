@@ -1,0 +1,107 @@
+<title>RaulitoShow IA para tablet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Diseño: guía de instalación de una sola columna, misma identidad oscura del estudio RaulitoShow. */
+:root {
+  --bg: #0d0e12; --panel: #16181f; --panel-2: #1e2029; --well: #0f1016; --line: #2a2d38;
+  --text: #e9eaf0; --muted: #a2a5b8; --red: #e53935; --red-2: #ff5248; --ok: #35c46a; --warn: #f2b33d; --info: #4c9dff;
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-head: "Space Grotesk", "Inter", system-ui, sans-serif;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--text); font: 16px/1.55 var(--font-ui); }
+* { box-sizing: border-box; }
+main { max-width: 760px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 18px; }
+header { display: flex; align-items: center; gap: 12px; }
+.logo { width: 44px; height: 44px; border-radius: 11px; background: var(--red); display: grid; place-items: center; color: #fff; font-size: 18px; flex: none; }
+h1 { margin: 0; font: 800 26px/1.15 var(--font-head); text-wrap: balance; } h1 b { color: var(--red); }
+.lead { margin: 2px 0 0; color: var(--muted); }
+h2 { margin: 0; font: 700 18px/1.3 var(--font-head); display: flex; gap: 10px; align-items: center; text-wrap: balance; }
+.n { width: 30px; height: 30px; border-radius: 50%; background: var(--red); color: #fff; display: inline-grid; place-items: center; font-size: 14px; font-weight: 800; flex: none; }
+.step { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+.step p, .step ol { margin: 0; }
+.step ol { padding-left: 22px; display: grid; gap: 6px; }
+kbd, code { background: var(--well); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; font: 600 14px/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; }
+button { font: inherit; color: #fff; background: var(--red); border: 0; border-radius: 10px; padding: 14px 18px; font-weight: 800; cursor: pointer; min-height: 50px; }
+button:hover { background: var(--red-2); }
+button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+.copied { color: var(--ok); font-weight: 600; }
+textarea { width: 100%; height: 90px; background: var(--well); color: var(--muted); border: 1px solid var(--line); border-radius: 10px; padding: 8px; font: 12px/1.3 ui-monospace, monospace; resize: vertical; }
+a { color: var(--info); }
+.note { border-radius: 12px; padding: 12px 14px; border: 1px solid #6b5420; background: #231d10; color: #f5d08a; font-size: 15px; }
+.note ul { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 4px; }
+.small { font-size: 14px; color: var(--muted); }
+</style>
+
+<main>
+  <header>
+    <div class="logo">▶</div>
+    <div>
+      <h1>RaulitoShow <b>IA</b> en tu tablet</h1>
+      <p class="lead">Automatiza tus prompts en Google Flow desde un marcador de Chrome. Se instala una sola vez.</p>
+    </div>
+  </header>
+
+  <section class="step">
+    <h2><span class="n">1</span> Copia el código de RaulitoShow</h2>
+    <button type="button" id="copyBtn">Copiar código</button>
+    <div id="copyState" class="small" aria-live="polite"></div>
+    <details>
+      <summary class="small">Si el botón no copia, mantén el dedo sobre este cuadro y elige “Seleccionar todo” y “Copiar”</summary>
+      <textarea id="codeBox" readonly></textarea>
+    </details>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">2</span> Crea el marcador en Chrome</h2>
+    <ol>
+      <li>Abre cualquier página en Chrome, toca <kbd>⋮</kbd> (arriba a la derecha) y toca la estrella <kbd>☆</kbd> para guardarla como marcador.</li>
+      <li>Toca <kbd>⋮</kbd> → <b>Favoritos</b> (o “Marcadores”) y busca el marcador que acabas de crear.</li>
+      <li>Toca los tres puntos del marcador → <b>Editar</b>.</li>
+      <li>En <b>Nombre</b> escribe: <code>RaulitoShow</code></li>
+      <li>En <b>URL</b> borra todo, mantén el dedo y elige <b>Pegar</b>. Guarda.</li>
+    </ol>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">3</span> Ábrelo dentro de Google Flow</h2>
+    <ol>
+      <li>Abre <a href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener">Google Flow</a>, inicia sesión y entra en un proyecto (donde se escriben los prompts).</li>
+      <li>Toca la barra de direcciones y escribe <code>RaulitoShow</code>.</li>
+      <li>En la lista, toca la sugerencia con la <b>estrella</b> ☆ (tu marcador). Aparece el panel <b>RaulitoShow IA</b> a la derecha.</li>
+    </ol>
+    <p class="small">El botón <kbd>—</kbd> lo minimiza en un botón rojo ▶. Si recargas Flow, vuelve a abrir el marcador: tus prompts y el progreso se conservan.</p>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">4</span> Usa el panel</h2>
+    <p>Elige tu personaje, el formato y x1–x4, escribe o sube los prompts, ajusta el ritmo seguro y pulsa <b>INICIAR</b>. Las imágenes se guardan en <b>Descargas</b> como <code>escena_001.png</code>, <code>escena_002.png</code>… Si Chrome pregunta si permites <b>descargar varios archivos</b>, toca <b>Permitir</b>.</p>
+    <p>Después crea el video con el <a href="https://claude.ai/artifact/XDS8D1X9Fm15Z7n625Ctgp" target="_blank" rel="noopener">Editor RaulitoShow IA para tablet</a>: elige las imágenes de Descargas y tu voz.</p>
+  </section>
+
+  <div class="note">
+    <b>Ten en cuenta</b>
+    <ul>
+      <li>Deja la pestaña de Flow <b>abierta y en primer plano</b> mientras trabaja: si cambias de app, Android puede frenarla.</li>
+      <li>Si Flow muestra una verificación (CAPTCHA) o pide iniciar sesión, el panel se pausa: resuélvela tú y pulsa ▶.</li>
+      <li>Si el panel dice que no encuentra algo de Flow (el cuadro de prompts, el botón de generar o los ajustes), Flow ha cambiado su diseño: hazlo a mano y pulsa ▶, o envía una foto para ajustarlo.</li>
+    </ul>
+  </div>
+</main>
+
+<script>
+(() => {
+  const CODE = {{BOOKMARKLET}};
+  const box = document.getElementById('codeBox');
+  box.value = CODE;
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    const state = document.getElementById('copyState');
+    navigator.clipboard.writeText(CODE).then(() => {
+      state.className = 'copied'; state.textContent = 'Código copiado. Ahora sigue el paso 2.';
+    }).catch(() => {
+      box.closest('details').open = true; box.focus(); box.select();
+      state.className = 'small'; state.textContent = 'No se pudo copiar automáticamente: el código está seleccionado abajo, mantén el dedo y elige “Copiar”.';
+    });
+  });
+})();
+</script>

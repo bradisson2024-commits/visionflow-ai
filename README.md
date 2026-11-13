@@ -18,7 +18,13 @@ Está creada desde cero. No usa, importa ni depende de IMPERIO PRO ni de ningún
 - Los archivos no salen del dispositivo y no se guardan entre sesiones.
 - Prueba: `YA_MP4MUXER=<ruta a mp4-muxer.js> node tests/e2e-tablet.js`.
 
-RaulitoShow IA no tiene versión para tablet: Chrome para Android no admite extensiones.
+**RaulitoShow IA para tablet**: Chrome para Android no admite extensiones, así que se instala como **marcador** (bookmarklet). Al tocarlo dentro de Google Flow, abre el mismo panel con el mismo motor (`extension/engine.js`) que la extensión.
+- La interfaz va en Shadow DOM sin `innerHTML`, por las restricciones de Trusted Types de Google.
+- El estado se guarda en `localStorage` y el personaje en IndexedDB.
+- Los resultados se guardan en Descargas como `escena_NNN`.
+- Construcción: `YA_TERSER=<ruta a terser> node tools/build-bookmarklet.js`. Genera `tablet/raulitoshow.bookmarklet.txt` y la página de instalación `tablet/instalar-raulitoshow.html`.
+- Prueba: `node tests/e2e-bookmarklet.js`, con CSP estricta y Trusted Types.
+- Limitación: la pestaña de Flow debe estar abierta y en primer plano mientras trabaja, porque Android frena las pestañas en segundo plano.
 
 ## Arquitectura y por qué
 
@@ -40,7 +46,8 @@ app/
 extension/
   manifest.json, config.js
   sidepanel.*          panel RaulitoShow IA
-  content.js           motor que actúa dentro de la página de Flow
+  engine.js            motor que actúa dentro de la página de Flow (compartido con la tablet)
+  content.js           conecta el motor con la extensión
   background.js        guardado de resultados (app o Descargas)
 tests/                 pruebas unitarias, de API y E2E en Chromium real
 ```
