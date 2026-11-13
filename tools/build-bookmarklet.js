@@ -15,7 +15,9 @@ const terser = require(process.env.YA_TERSER || 'terser');
   const out = await terser.minify(src, { compress: { passes: 2 }, mangle: true, format: { ascii_only: true, comments: false } });
   const code = out.code;
   if (/<\/script/i.test(code)) throw new Error('El código contiene </script>');
-  const bookmarklet = 'javascript:' + encodeURIComponent(code);
+  // Codificación mínima: solo % (los javascript: se descodifican al ejecutarse). Más corto que encodeURIComponent.
+  if (/[\r\n]/.test(code)) throw new Error('El código minificado contiene saltos de línea');
+  const bookmarklet = 'javascript:' + code.replace(/%/g, '%25');
   fs.writeFileSync(path.join(root, 'tablet/raulitoshow.bookmarklet.txt'), bookmarklet + '\n');
   const tplPath = path.join(root, 'tablet/instalar-raulitoshow.template.html');
   const page = fs.readFileSync(tplPath, 'utf8').replace('{{BOOKMARKLET}}', () => JSON.stringify(bookmarklet).replace(/</g, '\\u003c'));
