@@ -21,6 +21,7 @@
     "tabs"
   ],
   "host_permissions": [
+    "https://flow.google.com/*",
     "https://labs.google/*",
     "https://*.googleusercontent.com/*",
     "https://storage.googleapis.com/*",
@@ -29,6 +30,7 @@
   "content_scripts": [
     {
       "matches": [
+        "https://flow.google.com/*",
         "https://labs.google/fx/tools/flow*",
         "https://labs.google/fx/*/tools/flow*"
       ],
