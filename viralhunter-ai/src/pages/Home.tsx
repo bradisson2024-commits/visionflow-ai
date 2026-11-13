@@ -32,7 +32,9 @@ export default function Home() {
           Buscar canales recientes
         </button>
         <p className="mt-3 text-center text-[13px] text-neutral-400" data-testid="counter">
-          {cfg ? (
+          {cfg && !cfg.youtube ? (
+            <span className="text-brand">Configura YOUTUBE_API_KEY para empezar a buscar</span>
+          ) : cfg ? (
             <>
               Búsquedas disponibles hoy: <span className="font-semibold text-white">{cfg.quota.searchesLeftEstimate}</span>
               <span className="text-neutral-500"> · cuota YouTube {cfg.quota.usedToday.toLocaleString("es-ES")}/{cfg.quota.dailyLimit.toLocaleString("es-ES")}</span>
