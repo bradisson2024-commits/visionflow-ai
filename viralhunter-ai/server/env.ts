@@ -12,6 +12,11 @@ export const env = {
   anthropicModel: v("ANTHROPIC_MODEL") || "claude-opus-5-5",
   openaiKey: v("OPENAI_API_KEY"),
   openaiImageModel: v("OPENAI_IMAGE_MODEL") || "gpt-image-1",
+  imageProvider: (v("IMAGE_PROVIDER") || "pollinations") as "pollinations" | "huggingface" | "openai",
+  pollinationsModel: v("POLLINATIONS_MODEL") || "flux",
+  pollinationsToken: v("POLLINATIONS_TOKEN"),
+  hfToken: v("HF_TOKEN"),
+  hfImageModel: v("HF_IMAGE_MODEL") || "black-forest-labs/FLUX.1-schnell",
   elevenKey: v("ELEVENLABS_API_KEY"),
   elevenModel: v("ELEVENLABS_MODEL") || "eleven_multilingual_v2",
   allowedOrigin: v("ALLOWED_ORIGIN"),
@@ -38,8 +43,13 @@ export const CREDENTIALS: Record<string, MissingCredential> = {
   },
   OPENAI_API_KEY: {
     env: "OPENAI_API_KEY",
-    service: "Generación de imágenes (OpenAI gpt-image-1)",
-    howTo: "platform.openai.com → API keys → Create new secret key. Guárdala en .env como OPENAI_API_KEY.",
+    service: "Imágenes con OpenAI (opcional, de pago)",
+    howTo: "Sólo si IMAGE_PROVIDER=openai: platform.openai.com → API keys. Por defecto se usa Pollinations, gratis y sin clave.",
+  },
+  HF_TOKEN: {
+    env: "HF_TOKEN",
+    service: "Imágenes con Hugging Face (gratis)",
+    howTo: "Sólo si IMAGE_PROVIDER=huggingface: huggingface.co → Settings → Access Tokens → New token (tipo Read, gratis). Guárdalo en .env como HF_TOKEN.",
   },
   ELEVENLABS_API_KEY: {
     env: "ELEVENLABS_API_KEY",
@@ -53,6 +63,7 @@ const PRESENT: Record<string, () => boolean> = {
   YOUTUBE_API_KEY: () => !!env.youtubeKey,
   ANTHROPIC_API_KEY: () => !!env.anthropicKey,
   OPENAI_API_KEY: () => !!env.openaiKey,
+  HF_TOKEN: () => !!env.hfToken,
   ELEVENLABS_API_KEY: () => !!env.elevenKey,
 };
 
@@ -69,4 +80,9 @@ export class MissingCredentialError extends Error {
 export function requireCreds(...keys: string[]) {
   const m = missing(...keys);
   if (m.length) throw new MissingCredentialError(m);
+}
+
+/** Credenciales que necesita el proveedor de imágenes elegido (ninguna para Pollinations). */
+export function imageCredKeys(): string[] {
+  return env.imageProvider === "openai" ? ["OPENAI_API_KEY"] : env.imageProvider === "huggingface" ? ["HF_TOKEN"] : [];
 }

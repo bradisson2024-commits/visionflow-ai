@@ -6,7 +6,7 @@ Encuentra canales de YouTube pequeños con vídeos virales (buscador estilo Rodr
 - **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS (diseño móvil vertical, fondo negro, botones naranja).
 - **Backend seguro:** Node + Hono (`server/`). Todas las claves viven sólo en `.env` del servidor; el navegador nunca las recibe. Validación con zod, límite de peticiones, cabeceras seguras y token de acceso opcional (`APP_ACCESS_TOKEN`).
 - **Base de datos:** PostgreSQL de Supabase (`supabase/migrations/0001_init.sql`): búsquedas, canales, resultados, proyectos, recursos generados, ajustes y consumo de cuota.
-- **APIs reales:** YouTube Data API v3 · Claude (análisis IA con visión y salidas estructuradas) · OpenAI `gpt-image-1` (imágenes) · ElevenLabs (voz, sin clonación).
+- **APIs reales:** YouTube Data API v3 · Claude (análisis IA con visión y salidas estructuradas) · imágenes **gratis** con Pollinations (FLUX, sin clave) o Hugging Face (token gratuito); OpenAI opcional · ElevenLabs (voz, sin clonación).
 
 ## Puesta en marcha
 ```bash
@@ -19,6 +19,9 @@ npm run dev               # API en :8787 + web en :5173
 Producción: `npm run build && npm start` (sirve `dist/` y la API en el mismo puerto).
 
 Si falta una clave, la app indica cuál es y cómo obtenerla (pantalla «Configuración de APIs» del menú).
+
+## Imágenes gratis
+`IMAGE_PROVIDER=pollinations` (por defecto) no necesita clave. Límites del plan gratuito: 1 imagen cada ~45 s por IP (la app espera y reintenta sola), resolución reducida (~768 px) y marca de agua «pollinations.ai». Con un token gratuito (`POLLINATIONS_TOKEN`, auth.pollinations.ai) se quitan la marca y el límite. Alternativa gratis: `IMAGE_PROVIDER=huggingface` + `HF_TOKEN`.
 
 ## Cómo funciona la búsqueda (cada paso es una operación real, transmitida por SSE)
 1. **Nichos del día:** rotación determinista diaria de 3 nichos del catálogo (`server/services/niches.ts`).

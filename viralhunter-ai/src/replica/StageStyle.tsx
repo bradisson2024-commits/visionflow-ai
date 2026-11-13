@@ -118,7 +118,7 @@ export default function StageStyle({ project, reload, next }: { project: Project
         <>
           <section className="card p-4">
             <h3 className="text-[16px] font-bold">Imágenes de referencia originales</h3>
-            <p className="mt-1 text-xs text-neutral-500">Generadas con OpenAI a partir del estilo analizado. No copian personajes ni logotipos.</p>
+            <p className="mt-1 text-xs text-neutral-500">Generadas por el proveedor de imágenes configurado (gratis por defecto) a partir del estilo analizado. No copian personajes ni logotipos.</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               {refs.map((r) => <img key={r.id} src={r.url} alt="Referencia de estilo" className="aspect-[3/2] w-full rounded-lg object-cover" data-testid="style-ref" />)}
             </div>

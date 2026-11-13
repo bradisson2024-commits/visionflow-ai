@@ -7,7 +7,7 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { env, missing, MissingCredentialError } from "./env";
+import { env, missing, MissingCredentialError, imageCredKeys } from "./env";
 import { sql } from "./db";
 import { quotaUsedToday, YouTubeError } from "./services/youtube";
 import { runSearch, loadSearch, STEP_LABELS } from "./services/hunter";
@@ -59,13 +59,13 @@ const COST_RECENT = 1300; // unidades aprox. de una búsqueda reciente (9 search
 
 app.get("/api/config", async (c) => {
   const used = await quotaUsedToday();
-  const m = missing("DATABASE_URL", "YOUTUBE_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "ELEVENLABS_API_KEY");
+  const m = missing("DATABASE_URL", "YOUTUBE_API_KEY", "ANTHROPIC_API_KEY", ...imageCredKeys(), "ELEVENLABS_API_KEY");
   const has = (k: string) => !m.some((x) => x.env === k);
   const status: ConfigStatus = {
     database: has("DATABASE_URL"),
     youtube: has("YOUTUBE_API_KEY"),
     ai: has("ANTHROPIC_API_KEY"),
-    images: has("OPENAI_API_KEY"),
+    images: imageCredKeys().every(has),
     voice: has("ELEVENLABS_API_KEY"),
     missing: m,
     quota: {
@@ -75,7 +75,7 @@ app.get("/api/config", async (c) => {
       costPerRecentSearch: COST_RECENT,
     },
   };
-  return c.json({ ...status, accessTokenRequired: !!accessToken });
+  return c.json({ ...status, imageProvider: env.imageProvider, accessTokenRequired: !!accessToken });
 });
 
 // ---------- Búsquedas (Server-Sent Events con progreso real) ----------
@@ -259,7 +259,7 @@ app.post("/api/projects/:id/branding/generate", limit(5, 60_000), async (c) => {
     return errorResponse(c, e);
   }
   return sse(c, async (send) => {
-    preflight("DATABASE_URL", "ANTHROPIC_API_KEY", "OPENAI_API_KEY");
+    preflight("DATABASE_URL", "ANTHROPIC_API_KEY", ...imageCredKeys());
     await send({ type: "steps", labels: replica.BRANDING_STEPS });
     const proposals = await replica.generateBranding(pid, (e) => void send(e));
     await send({ type: "done", proposals });

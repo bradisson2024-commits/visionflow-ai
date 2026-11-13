@@ -15,7 +15,7 @@ export default function Settings() {
         ["Supabase / PostgreSQL", cfg.database],
         ["YouTube Data API v3", cfg.youtube],
         ["IA de análisis (Claude)", cfg.ai],
-        ["Imágenes (OpenAI)", cfg.images],
+        [`Imágenes (${(cfg as any).imageProvider === "openai" ? "OpenAI" : (cfg as any).imageProvider === "huggingface" ? "Hugging Face · gratis" : "Pollinations · gratis"})`, cfg.images],
         ["Voz (ElevenLabs)", cfg.voice],
       ]
     : [];
