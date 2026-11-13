@@ -29,6 +29,7 @@ button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 2px sol
 textarea { width: 100%; height: 90px; background: var(--well); color: var(--muted); border: 1px solid var(--line); border-radius: 10px; padding: 8px; font: 12px/1.3 ui-monospace, monospace; resize: vertical; }
 a { color: var(--info); }
 .note { border-radius: 12px; padding: 12px 14px; border: 1px solid #6b5420; background: #231d10; color: #f5d08a; font-size: 15px; }
+.note.err { border-color: #6b2522; background: #26100f; color: #ffb3ad; }
 .note ul { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 4px; }
 .small { font-size: 14px; color: var(--muted); }
 </style>
@@ -42,39 +43,40 @@ a { color: var(--info); }
     </div>
   </header>
 
+  <div class="note err">
+    <b>No pegues el código directamente en la barra de direcciones.</b> Chrome le borra el comienzo <code>javascript:</code> y lo convierte en una búsqueda de Google (sale el error 413). Usa uno de estos dos métodos.
+  </div>
+
   <section class="step">
-    <h2><span class="n">1</span> Copia el código de RaulitoShow</h2>
-    <button type="button" id="copyBtn">Copiar código</button>
-    <div id="copyState" class="small" aria-live="polite"></div>
+    <h2><span class="n">A</span> Método rápido (cada vez que lo uses)</h2>
+    <ol>
+      <li>Toca <b>Copiar código para la barra</b>:<br><button type="button" id="copyBarBtn">Copiar código para la barra</button> <span id="copyBarState" class="small" aria-live="polite"></span></li>
+      <li>Abre <a href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener">Google Flow</a>, inicia sesión y entra en un proyecto (donde se escriben los prompts).</li>
+      <li>Toca la barra de direcciones y <b>borra todo</b> lo que haya.</li>
+      <li>Escribe con el teclado, exactamente: <code>javascript:</code> (con los dos puntos al final).</li>
+      <li>Justo después, mantén el dedo y elige <b>Pegar</b>. Toca <b>Ir</b> / Enter en el teclado.</li>
+    </ol>
+    <p class="small">Aparece el panel RaulitoShow IA a la derecha de Flow. La palabra <code>javascript:</code> hay que escribirla a mano: si se pega, Chrome la borra.</p>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">B</span> Método marcador (se instala una vez)</h2>
+    <ol>
+      <li>Toca <b>Copiar código para el marcador</b>:<br><button type="button" id="copyBtn">Copiar código para el marcador</button> <span id="copyState" class="small" aria-live="polite"></span></li>
+      <li>En Chrome toca <kbd>⋮</kbd> (arriba a la derecha) y la estrella <kbd>☆</kbd> para guardar esta página como marcador.</li>
+      <li>Toca <kbd>⋮</kbd> → <b>Favoritos</b> → abre la carpeta donde quedó → en el marcador nuevo toca sus tres puntos → <b>Editar</b>.</li>
+      <li>En <b>Nombre</b> escribe <code>RaulitoShow</code>. En <b>URL</b> borra todo, mantén el dedo, elige <b>Pegar</b> y guarda.</li>
+      <li>Para usarlo: abre Google Flow en un proyecto, toca la barra de direcciones, escribe <code>RaulitoShow</code> y toca la sugerencia con la <b>estrella</b> ☆ (no la de la lupa 🔍).</li>
+    </ol>
+    <p class="small">El código se pega en el campo <b>URL del marcador</b>, nunca en la barra de direcciones.</p>
     <details>
-      <summary class="small">Si el botón no copia, mantén el dedo sobre este cuadro y elige “Seleccionar todo” y “Copiar”</summary>
+      <summary class="small">Si los botones no copian: mantén el dedo sobre el cuadro, “Seleccionar todo” y “Copiar” (este cuadro es para el marcador)</summary>
       <textarea id="codeBox" readonly></textarea>
     </details>
   </section>
 
   <section class="step">
-    <h2><span class="n">2</span> Crea el marcador en Chrome</h2>
-    <ol>
-      <li>Abre cualquier página en Chrome, toca <kbd>⋮</kbd> (arriba a la derecha) y toca la estrella <kbd>☆</kbd> para guardarla como marcador.</li>
-      <li>Toca <kbd>⋮</kbd> → <b>Favoritos</b> (o “Marcadores”) y busca el marcador que acabas de crear.</li>
-      <li>Toca los tres puntos del marcador → <b>Editar</b>.</li>
-      <li>En <b>Nombre</b> escribe: <code>RaulitoShow</code></li>
-      <li>En <b>URL</b> borra todo, mantén el dedo y elige <b>Pegar</b>. Guarda.</li>
-    </ol>
-  </section>
-
-  <section class="step">
-    <h2><span class="n">3</span> Ábrelo dentro de Google Flow</h2>
-    <ol>
-      <li>Abre <a href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener">Google Flow</a>, inicia sesión y entra en un proyecto (donde se escriben los prompts).</li>
-      <li>Toca la barra de direcciones y escribe <code>RaulitoShow</code>.</li>
-      <li>En la lista, toca la sugerencia con la <b>estrella</b> ☆ (tu marcador). Aparece el panel <b>RaulitoShow IA</b> a la derecha.</li>
-    </ol>
-    <p class="small">El botón <kbd>—</kbd> lo minimiza en un botón rojo ▶. Si recargas Flow, vuelve a abrir el marcador: tus prompts y el progreso se conservan.</p>
-  </section>
-
-  <section class="step">
-    <h2><span class="n">4</span> Usa el panel</h2>
+    <h2><span class="n">✓</span> Usa el panel</h2>
     <p>Elige tu personaje, el formato y x1–x4, escribe o sube los prompts, ajusta el ritmo seguro y pulsa <b>INICIAR</b>. Las imágenes se guardan en <b>Descargas</b> como <code>escena_001.png</code>, <code>escena_002.png</code>… Si Chrome pregunta si permites <b>descargar varios archivos</b>, toca <b>Permitir</b>.</p>
     <p>Después crea el video con el <a href="https://claude.ai/artifact/XDS8D1X9Fm15Z7n625Ctgp" target="_blank" rel="noopener">Editor RaulitoShow IA para tablet</a>: elige las imágenes de Descargas y tu voz.</p>
   </section>
@@ -94,14 +96,19 @@ a { color: var(--info); }
   const CODE = {{BOOKMARKLET}};
   const box = document.getElementById('codeBox');
   box.value = CODE;
-  document.getElementById('copyBtn').addEventListener('click', () => {
-    const state = document.getElementById('copyState');
-    navigator.clipboard.writeText(CODE).then(() => {
-      state.className = 'copied'; state.textContent = 'Código copiado. Ahora sigue el paso 2.';
-    }).catch(() => {
-      box.closest('details').open = true; box.focus(); box.select();
-      state.className = 'small'; state.textContent = 'No se pudo copiar automáticamente: el código está seleccionado abajo, mantén el dedo y elige “Copiar”.';
+  function copy(btnId, stateId, text, okMsg) {
+    document.getElementById(btnId).addEventListener('click', () => {
+      const state = document.getElementById(stateId);
+      navigator.clipboard.writeText(text).then(() => { state.className = 'copied'; state.textContent = okMsg; })
+        .catch(() => {
+          box.value = text; box.closest('details').open = true; box.focus(); box.select();
+          state.className = 'small'; state.textContent = 'No se pudo copiar solo: el código está seleccionado en el cuadro de abajo, mantén el dedo y elige “Copiar”.';
+        });
     });
-  });
+  }
+  // Para la barra: lo mismo sin "javascript:" (se escribe a mano); Chrome descodifica los %XX al ejecutarlo.
+  const BAR = CODE.slice('javascript:'.length);
+  copy('copyBarBtn', 'copyBarState', BAR, 'Copiado. Ve a Flow, escribe javascript: y pega.');
+  copy('copyBtn', 'copyState', CODE, 'Copiado. Pégalo en el campo URL del marcador.');
 })();
 </script>
