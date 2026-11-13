@@ -40,11 +40,11 @@ Almacenamiento propio en `~/YOUTUBE_AUTOMATIZADO/proyectos/<id>/`, con las carpe
 
 ## Instalación y uso
 
-Requisitos: Node.js ≥ 18, FFmpeg + FFprobe en el PATH y Google Chrome.
+Requisitos: **un ordenador** (Windows, Mac o Linux) con Node.js ≥ 18, FFmpeg + FFprobe en el PATH y Google Chrome de escritorio. No funciona en tablet ni móvil: Chrome para Android no admite extensiones y la app necesita FFmpeg.
 
-```bash
-npm start            # abre http://127.0.0.1:5317
-```
+- Windows: doble clic en `INICIAR_WINDOWS.bat`.
+- Mac / Linux: `./iniciar_mac_linux.sh`.
+- O en una terminal: `npm start` y abrir http://127.0.0.1:5317
 
 **RaulitoShow IA**
 
