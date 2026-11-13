@@ -88,3 +88,14 @@ describe("nichos y patrones", () => {
     expect(p.durationBuckets.find((b) => b.label === "≤ 1 min")!.count).toBe(1);
   });
 });
+
+import { pcmToWav } from "../server/services/voice";
+describe("voz", () => {
+  it("envuelve PCM de Gemini en un WAV válido", () => {
+    const wav = pcmToWav(Buffer.alloc(4800), 24000);
+    expect(wav.subarray(0, 4).toString()).toBe("RIFF");
+    expect(wav.subarray(8, 12).toString()).toBe("WAVE");
+    expect(wav.readUInt32LE(24)).toBe(24000);
+    expect(wav.length).toBe(44 + 4800);
+  });
+});

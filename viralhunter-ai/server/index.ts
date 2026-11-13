@@ -7,7 +7,8 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { env, missing, MissingCredentialError, imageCredKeys } from "./env";
+import { env, missing, MissingCredentialError, imageCredKeys, aiCredKeys, aiProvider, voiceCredKeys, voiceProvider } from "./env";
+import { aiHasVision } from "./services/llm";
 import { sql } from "./db";
 import { quotaUsedToday, YouTubeError } from "./services/youtube";
 import { runSearch, loadSearch, STEP_LABELS } from "./services/hunter";
@@ -59,14 +60,14 @@ const COST_RECENT = 1300; // unidades aprox. de una búsqueda reciente (9 search
 
 app.get("/api/config", async (c) => {
   const used = await quotaUsedToday();
-  const m = missing("DATABASE_URL", "YOUTUBE_API_KEY", "ANTHROPIC_API_KEY", ...imageCredKeys(), "ELEVENLABS_API_KEY");
+  const m = missing(...new Set(["DATABASE_URL", "YOUTUBE_API_KEY", ...aiCredKeys(), ...imageCredKeys(), ...voiceCredKeys()]));
   const has = (k: string) => !m.some((x) => x.env === k);
   const status: ConfigStatus = {
     database: has("DATABASE_URL"),
     youtube: has("YOUTUBE_API_KEY"),
-    ai: has("ANTHROPIC_API_KEY"),
+    ai: aiCredKeys().every(has),
     images: imageCredKeys().every(has),
-    voice: has("ELEVENLABS_API_KEY"),
+    voice: voiceCredKeys().every(has),
     missing: m,
     quota: {
       usedToday: used,
@@ -75,7 +76,7 @@ app.get("/api/config", async (c) => {
       costPerRecentSearch: COST_RECENT,
     },
   };
-  return c.json({ ...status, imageProvider: env.imageProvider, accessTokenRequired: !!accessToken });
+  return c.json({ ...status, imageProvider: env.imageProvider, aiProvider: aiProvider(), aiVision: aiHasVision(), voiceProvider: voiceProvider(), accessTokenRequired: !!accessToken });
 });
 
 // ---------- Búsquedas (Server-Sent Events con progreso real) ----------
@@ -230,6 +231,7 @@ app.post(
         similarity: z.number().min(0).max(1),
         style: z.number().min(0).max(1),
         speed: z.number().min(0.7).max(1.2),
+        instructions: z.string().max(400).default(""),
       })
       .parse(await c.req.json());
     return synthesize({ projectId: id(c), ...b });
@@ -243,7 +245,7 @@ app.post(
         language: z.string().regex(/^[a-z]{2}$/),
         character: z.object({ mode: z.enum(["none", "create"]), description: z.string().max(800).optional(), assetId: z.string().uuid().optional() }),
         voice: z
-          .object({ voiceId: z.string(), voiceName: z.string(), stability: z.number(), similarity: z.number(), style: z.number(), speed: z.number(), sampleAssetId: z.string().uuid().optional() })
+          .object({ provider: z.string().max(20).optional(), voiceId: z.string(), voiceName: z.string(), stability: z.number(), similarity: z.number(), style: z.number(), speed: z.number(), instructions: z.string().max(400).optional(), sampleAssetId: z.string().uuid().optional() })
           .nullable(),
         referenceAssetIds: z.array(z.string().uuid()).max(10).default([]),
       })
@@ -259,7 +261,7 @@ app.post("/api/projects/:id/branding/generate", limit(5, 60_000), async (c) => {
     return errorResponse(c, e);
   }
   return sse(c, async (send) => {
-    preflight("DATABASE_URL", "ANTHROPIC_API_KEY", ...imageCredKeys());
+    preflight("DATABASE_URL", ...aiCredKeys(), ...imageCredKeys());
     await send({ type: "steps", labels: replica.BRANDING_STEPS });
     const proposals = await replica.generateBranding(pid, (e) => void send(e));
     await send({ type: "done", proposals });

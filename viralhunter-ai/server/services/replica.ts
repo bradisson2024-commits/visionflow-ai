@@ -1,7 +1,7 @@
 // ReplicaPro: análisis del canal, estilo y voz, branding y vídeos.
 import type { ChannelInfo, VideoInfo } from "../../shared/types";
 import { sql } from "../db";
-import { missing } from "../env";
+import { missing, aiCredKeys } from "../env";
 import * as yt from "./youtube";
 import * as ai from "./ai";
 import { generateImages } from "./images";
@@ -147,8 +147,8 @@ export async function analyzeChannel(projectId: string, url: string, emit: StepE
     });
     let formatsNote: string | undefined;
     const formats = await run(6, async () => {
-      if (missing("ANTHROPIC_API_KEY").length) {
-        formatsNote = "IA no configurada (ANTHROPIC_API_KEY): análisis de formatos no disponible.";
+      if (missing(...aiCredKeys()).length) {
+        formatsNote = `IA no configurada (${aiCredKeys().join(", ")}): análisis de formatos no disponible.`;
         return [null, formatsNote];
       }
       const pool = new Map([...top, ...recent.slice(0, 40)].map((v) => [v.id, v]));

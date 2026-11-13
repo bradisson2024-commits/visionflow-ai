@@ -14,9 +14,9 @@ export default function Settings() {
     ? [
         ["Supabase / PostgreSQL", cfg.database],
         ["YouTube Data API v3", cfg.youtube],
-        ["IA de análisis (Claude)", cfg.ai],
+        [`IA (${({ gemini: "Google Gemini · gratis", pollinations: "Pollinations · gratis, sin visión", anthropic: "Claude" } as any)[(cfg as any).aiProvider]})`, cfg.ai],
         [`Imágenes (${(cfg as any).imageProvider === "openai" ? "OpenAI" : (cfg as any).imageProvider === "huggingface" ? "Hugging Face · gratis" : "Pollinations · gratis"})`, cfg.images],
-        ["Voz (ElevenLabs)", cfg.voice],
+        [`Voz (${(cfg as any).voiceProvider === "elevenlabs" ? "ElevenLabs" : "Google Gemini · gratis"})`, cfg.voice],
       ]
     : [];
   return (

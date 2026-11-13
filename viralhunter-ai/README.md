@@ -6,7 +6,16 @@ Encuentra canales de YouTube pequeños con vídeos virales (buscador estilo Rodr
 - **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS (diseño móvil vertical, fondo negro, botones naranja).
 - **Backend seguro:** Node + Hono (`server/`). Todas las claves viven sólo en `.env` del servidor; el navegador nunca las recibe. Validación con zod, límite de peticiones, cabeceras seguras y token de acceso opcional (`APP_ACCESS_TOKEN`).
 - **Base de datos:** PostgreSQL de Supabase (`supabase/migrations/0001_init.sql`): búsquedas, canales, resultados, proyectos, recursos generados, ajustes y consumo de cuota.
-- **APIs reales:** YouTube Data API v3 · Claude (análisis IA con visión y salidas estructuradas) · imágenes **gratis** con Pollinations (FLUX, sin clave) o Hugging Face (token gratuito); OpenAI opcional · ElevenLabs (voz, sin clonación).
+- **APIs reales, todas GRATIS:**
+  | Función | Proveedor por defecto | Clave |
+  |---|---|---|
+  | Datos de canales y vídeos | YouTube Data API v3 | `YOUTUBE_API_KEY` (gratis) |
+  | Base de datos | Supabase PostgreSQL (plan Free) | `DATABASE_URL` (gratis) |
+  | IA con visión (análisis, branding, guiones) | Google Gemini (plan gratuito) | `GEMINI_API_KEY` (gratis, sin tarjeta) |
+  | Voz de narración | Google Gemini TTS | la misma `GEMINI_API_KEY` |
+  | Imágenes | Pollinations (FLUX) | ninguna |
+
+  Sin `GEMINI_API_KEY` la IA funciona igualmente con Pollinations (sin clave), pero sólo con texto: no analiza miniaturas (no hay etiquetas Faceless) y no hay voz. Anthropic, OpenAI y ElevenLabs quedan como opciones de pago, nunca necesarias.
 
 ## Puesta en marcha
 ```bash

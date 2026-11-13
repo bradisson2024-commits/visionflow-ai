@@ -18,6 +18,8 @@ export default function StageStyle({ project, reload, next }: { project: Project
   const [characterDesc, setCharacterDesc] = useState<string>(choices.character?.description ?? "");
   const [language, setLanguage] = useState<string>(choices.language ?? project.channel_analysis?.language ?? "es");
   const [voices, setVoices] = useState<any[] | null>(null);
+  const [voiceProvider, setVoiceProvider] = useState<string>("");
+  const [instructions, setInstructions] = useState<string>(choices.voice?.instructions ?? "con tono de narrador de documental, cálido y cercano");
   const [voiceErr, setVoiceErr] = useState<Err>({ msg: null });
   const [voiceId, setVoiceId] = useState<string>(choices.voice?.voiceId ?? "");
   const [stability, setStability] = useState<number>(choices.voice?.stability ?? 0.5);
@@ -31,7 +33,7 @@ export default function StageStyle({ project, reload, next }: { project: Project
   const characters = useMemo(() => project.assets.filter((a) => a.kind === "character"), [project.assets]);
 
   useEffect(() => {
-    api<any[]>("/voices").then(setVoices).catch((e) => setVoiceErr(toErr(e)));
+    api<{ provider: string; voices: any[] }>("/voices").then((r) => { setVoices(r.voices); setVoiceProvider(r.provider); }).catch((e) => setVoiceErr(toErr(e)));
   }, []);
 
   const act = async (key: string, f: () => Promise<unknown>) => {
@@ -56,7 +58,7 @@ export default function StageStyle({ project, reload, next }: { project: Project
         body: {
           language,
           character: { mode: characterMode, description: characterMode === "create" ? characterDesc : undefined, assetId: characterMode === "create" ? characters.at(-1)?.id : undefined },
-          voice: voice ? { voiceId: voice.id, voiceName: voice.name, stability, similarity, style: styleExag, speed, sampleAssetId: sample?.id } : null,
+          voice: voice ? { provider: voiceProvider, voiceId: voice.id, voiceName: voice.name, stability, similarity, style: styleExag, speed, instructions, sampleAssetId: sample?.id } : null,
           referenceAssetIds: refs.map((r) => r.id),
         },
       });
@@ -151,7 +153,9 @@ export default function StageStyle({ project, reload, next }: { project: Project
 
           <section className="card p-4">
             <h3 className="text-[16px] font-bold">Voz de narración</h3>
-            <p className="mt-1 text-xs text-neutral-500">Voces reales de tu biblioteca de ElevenLabs. No se clona ninguna voz.</p>
+            <p className="mt-1 text-xs text-neutral-500">
+              {voiceProvider === "elevenlabs" ? "Voces de tu biblioteca de ElevenLabs." : "Voces prediseñadas de Google Gemini (gratis)."} No se clona ninguna voz.
+            </p>
             <div className="mt-3">
               <label className="label" htmlFor="vlang">Idioma del nuevo canal</label>
               <select id="vlang" className="input" value={language} onChange={(e) => setLanguage(e.target.value)}>
@@ -167,16 +171,25 @@ export default function StageStyle({ project, reload, next }: { project: Project
                     <option value="">Elige una voz…</option>
                     {voices.map((v) => (
                       <option key={v.id} value={v.id}>
-                        {v.name} {[v.gender, v.age, v.accent].filter(Boolean).length ? `· ${[v.gender, v.age, v.accent].filter(Boolean).join(", ")}` : ""}
+                        {v.name} {[v.description, v.gender, v.age, v.accent].filter(Boolean).length ? `· ${[v.description, v.gender, v.age, v.accent].filter(Boolean).join(", ")}` : ""}
                       </option>
                     ))}
                   </select>
                   {voice?.previewUrl && <audio className="mt-2 w-full" controls src={voice.previewUrl} />}
                 </div>
                 <div className="mt-3 space-y-3">
-                  <Slider label="Estabilidad" value={stability} set={setStability} min={0} max={1} step={0.05} />
-                  <Slider label="Similitud" value={similarity} set={setSimilarity} min={0} max={1} step={0.05} />
-                  <Slider label="Expresividad" value={styleExag} set={setStyleExag} min={0} max={1} step={0.05} />
+                  {voiceProvider === "elevenlabs" ? (
+                    <>
+                      <Slider label="Estabilidad" value={stability} set={setStability} min={0} max={1} step={0.05} />
+                      <Slider label="Similitud" value={similarity} set={setSimilarity} min={0} max={1} step={0.05} />
+                      <Slider label="Expresividad" value={styleExag} set={setStyleExag} min={0} max={1} step={0.05} />
+                    </>
+                  ) : (
+                    <label className="block">
+                      <span className="label">Indicaciones de interpretación</span>
+                      <input className="input" value={instructions} onChange={(e) => setInstructions(e.target.value)} maxLength={400} placeholder="Ej.: tono misterioso, voz grave y pausada" />
+                    </label>
+                  )}
                   <Slider label="Velocidad" value={speed} set={setSpeed} min={0.7} max={1.2} step={0.05} />
                 </div>
                 <textarea className="input mt-3 min-h-[80px]" value={sampleText} onChange={(e) => setSampleText(e.target.value)} maxLength={600} />
@@ -185,7 +198,7 @@ export default function StageStyle({ project, reload, next }: { project: Project
                   disabled={!!busy || !voiceId}
                   onClick={() =>
                     act("voice", async () => {
-                      const r = await api(`/projects/${project.id}/voice/sample`, { body: { voiceId, text: sampleText, language, stability, similarity, style: styleExag, speed } });
+                      const r = await api(`/projects/${project.id}/voice/sample`, { body: { voiceId, text: sampleText, language, stability, similarity, style: styleExag, speed, instructions } });
                       setSample(r);
                     })
                   }

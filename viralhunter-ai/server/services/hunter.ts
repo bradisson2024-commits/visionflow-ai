@@ -1,7 +1,8 @@
 // Motor de descubrimiento de canales ganadores. Cada paso de progreso corresponde a una operación real.
 import type { ChannelInfo, ChannelResult, NicheSearchParams, OpportunityTag, ProgressEvent, VideoInfo } from "../../shared/types";
 import { TAG_LABELS } from "../../shared/types";
-import { env, missing } from "../env";
+import { env, missing, aiCredKeys, aiProvider } from "../env";
+import { aiHasVision } from "./llm";
 import { sql } from "../db";
 import * as yt from "./youtube";
 import { classifyChannels, type ChannelClassificationT } from "./ai";
@@ -69,7 +70,8 @@ export async function runSearch(
   emit: Emit,
 ): Promise<{ searchId: string; results: ChannelResult[]; quotaUsed: number; note?: string }> {
   const tracker: yt.Tracker = { units: 0 };
-  const aiAvailable = missing("ANTHROPIC_API_KEY").length === 0;
+  const aiAvailable = missing(...aiCredKeys()).length === 0;
+  const vision = aiHasVision();
   let step = 0;
   const start = (n: number, detail?: string) => {
     step = n;
@@ -209,9 +211,9 @@ export async function runSearch(
           });
         }
       }
-      detail5 = `${classification.channels.length} canales clasificados por IA · ${nonEs.length} formatos comprobados en español · ${uniqueTags.size} sin réplica fuerte`;
+      detail5 = `${classification.channels.length} canales clasificados por IA (${aiProvider()}${vision ? "" : ", sin visión: no se etiqueta Faceless"}) · ${nonEs.length} formatos comprobados en español · ${uniqueTags.size} sin réplica fuerte`;
     } else {
-      detail5 = "IA no configurada (ANTHROPIC_API_KEY): se omiten las etiquetas de formato y faceless";
+      detail5 = `IA no configurada (${aiCredKeys().join(", ")}): se omiten las etiquetas de formato y faceless`;
     }
     done(5, detail5);
 
@@ -245,9 +247,9 @@ export async function runSearch(
       const tags: OpportunityTag[] = [...dataTags(metrics, uploads)];
       const u = uniqueTags.get(x.c.id);
       if (u) tags.push(u);
-      if (cl?.faceless && cl.aiGeneratedVisuals)
+      if (vision && cl?.faceless && cl.aiGeneratedVisuals)
         tags.push({ id: "faceless_ai", label: TAG_LABELS.faceless_ai, source: "ai_analysis", evidence: `Análisis IA de miniaturas: ${cl.aiEvidence}` });
-      else if (cl?.faceless)
+      else if (vision && cl?.faceless)
         tags.push({ id: "faceless", label: TAG_LABELS.faceless, source: "ai_analysis", evidence: `Análisis IA de miniaturas: ${cl.facelessEvidence}` });
       const em = emerging.get(x.best.niche);
       if (em) tags.push({ id: "emerging_niche", label: TAG_LABELS.emerging_niche, source: "youtube_data", evidence: em });

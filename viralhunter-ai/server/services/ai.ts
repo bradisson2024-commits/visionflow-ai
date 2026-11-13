@@ -1,64 +1,8 @@
 // IA de análisis (Claude). Todo resultado de aquí se marca como "análisis IA" en la interfaz.
-import Anthropic from "@anthropic-ai/sdk";
-import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
-import { env, requireCreds } from "../env";
+import { generateJson, type Img } from "./llm";
 
-let _client: Anthropic | null = null;
-function client() {
-  requireCreds("ANTHROPIC_API_KEY");
-  if (!_client) _client = new Anthropic({ apiKey: env.anthropicKey });
-  return _client;
-}
-
-type Img = { url: string; label?: string };
-type Effort = "low" | "medium" | "high";
-
-/** Descarga la miniatura y la envía en base64 (evita fallos de fetch remoto). */
-async function imageBlock(url: string): Promise<Anthropic.Beta.BetaImageBlockParam | null> {
-  try {
-    const r = await fetch(url);
-    if (!r.ok) return null;
-    const type = (r.headers.get("content-type") ?? "image/jpeg").split(";")[0];
-    if (!/^image\/(jpeg|png|gif|webp)$/.test(type)) return null;
-    const data = Buffer.from(await r.arrayBuffer()).toString("base64");
-    return { type: "image", source: { type: "base64", media_type: type as "image/jpeg", data } };
-  } catch {
-    return null;
-  }
-}
-
-async function structured<S extends z.ZodType>(opts: {
-  schema: S;
-  system: string;
-  prompt: string;
-  images?: Img[];
-  effort?: Effort;
-  maxTokens?: number;
-}): Promise<z.infer<S>> {
-  const content: Anthropic.Beta.BetaContentBlockParam[] = [];
-  for (const img of opts.images ?? []) {
-    const b = await imageBlock(img.url);
-    if (!b) continue;
-    if (img.label) content.push({ type: "text", text: img.label });
-    content.push(b);
-  }
-  content.push({ type: "text", text: opts.prompt });
-  const stream = client().beta.messages.stream({
-    model: env.anthropicModel,
-    max_tokens: opts.maxTokens ?? 32000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    system: opts.system,
-    output_config: { effort: opts.effort ?? "medium", format: betaZodOutputFormat(opts.schema) },
-    messages: [{ role: "user", content }],
-  });
-  const msg = await stream.finalMessage();
-  if (msg.stop_reason === "refusal") throw new Error("La IA rechazó la solicitud.");
-  if (msg.stop_reason === "max_tokens") throw new Error("La respuesta de la IA se cortó (max_tokens).");
-  const text = msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
-  return opts.schema.parse(JSON.parse(text));
-}
+const structured = generateJson;
 
 const SYSTEM_ANALYST =
   "Eres un analista experto en estrategia de contenido de YouTube. Basas tus conclusiones sólo en el material que se te muestra " +
@@ -190,44 +134,62 @@ export async function generateBranding(input: { sourceChannel: string; niche: st
 }
 
 // ---------- ReplicaPro · Etapa 4: vídeos ----------
-export const VideoProposals = z.object({
-  referenceInsights: z.array(z.string()).describe("Qué hace funcionar a los vídeos de referencia, según sus datos"),
-  proposals: z.array(
-    z.object({
-      title: z.string(),
-      idea: z.string(),
-      hook: z.string().describe("Gancho de los primeros 5-10 segundos, texto literal a narrar"),
-      structure: z.array(z.object({ section: z.string(), seconds: z.number(), content: z.string() })),
-      script: z.string().describe("Guion completo y original para narración"),
-      durationMinutes: z.number(),
-      visualStyle: z.string(),
-      thumbnailIdea: z.string(),
-      thumbnailPrompt: z.string().describe("Prompt en inglés para generar la miniatura"),
-      inspiredBy: z.string().describe("Qué vídeo de referencia inspira la idea y en qué se diferencia"),
-    }),
-  ),
+const VideoIdea = z.object({
+  title: z.string(),
+  idea: z.string(),
+  hook: z.string().describe("Gancho de los primeros 5-10 segundos, texto literal a narrar"),
+  structure: z.array(z.object({ section: z.string(), seconds: z.number(), content: z.string() })),
+  durationMinutes: z.number(),
+  visualStyle: z.string(),
+  thumbnailIdea: z.string(),
+  thumbnailPrompt: z.string().describe("Prompt en inglés para generar la miniatura"),
+  inspiredBy: z.string().describe("Qué vídeo de referencia inspira la idea y en qué se diferencia"),
 });
-export type VideoProposalsT = z.infer<typeof VideoProposals>;
+const VideoIdeas = z.object({
+  referenceInsights: z.array(z.string()).describe("Qué hace funcionar a los vídeos de referencia, según sus datos"),
+  proposals: z.array(VideoIdea),
+});
+const Script = z.object({ script: z.string().describe("Guion completo para narración, de principio a fin") });
+
+export type VideoProposalsT = { referenceInsights: string[]; proposals: (z.infer<typeof VideoIdea> & { script: string })[] };
+
+const SYSTEM_WRITER =
+  "Eres guionista jefe de canales de YouTube. Escribes ideas y guiones 100% originales: nunca copias títulos, frases ni guiones de los vídeos de referencia; " +
+  "sólo extraes patrones (temas, estructura, ganchos). Escribe en el idioma indicado.";
+
 export async function generateVideoIdeas(input: {
   brand: unknown;
   style: unknown;
   language: string;
   count: number;
   references: { title: string; views: number | null; durationSec: number | null; description?: string; publishedAt: string }[];
-}) {
-  return structured({
-    schema: VideoProposals,
-    system:
-      "Eres guionista jefe de canales de YouTube. Escribes ideas y guiones 100% originales: nunca copias títulos, frases ni guiones de los vídeos de referencia; " +
-      "sólo extraes patrones (temas, estructura, ganchos). Escribe en el idioma indicado.",
+}): Promise<VideoProposalsT> {
+  // Paso 1: ideas, ganchos y estructura a partir de los datos reales de las referencias.
+  const ideas = await structured({
+    schema: VideoIdeas,
+    system: SYSTEM_WRITER,
     effort: "medium",
-    maxTokens: 64000,
     prompt:
       `Idioma: ${input.language}\nMarca: ${JSON.stringify(input.brand)}\nEstilo aprobado: ${JSON.stringify(input.style)}\n\n` +
       `Vídeos de referencia con más vistas (datos reales de YouTube):\n` +
       input.references
         .map((r) => `- "${r.title}" | ${r.views ?? "?"} vistas | ${r.durationSec ?? "?"} s | ${r.publishedAt.slice(0, 10)} | ${(r.description ?? "").slice(0, 200).replace(/\s+/g, " ")}`)
         .join("\n") +
-      `\n\nGenera ${input.count} propuestas de vídeo originales con guion completo.`,
+      `\n\nGenera exactamente ${input.count} propuestas de vídeo originales (sin guion todavía).`,
   });
+  // Paso 2: guion completo de cada propuesta.
+  const proposals: VideoProposalsT["proposals"] = [];
+  for (const idea of ideas.proposals.slice(0, input.count)) {
+    const { script } = await structured({
+      schema: Script,
+      system: SYSTEM_WRITER,
+      effort: "medium",
+      maxTokens: 16000,
+      prompt:
+        `Idioma: ${input.language}\nMarca: ${JSON.stringify(input.brand)}\nPropuesta: ${JSON.stringify(idea)}\n\n` +
+        `Escribe el guion completo y original de narración para un vídeo de unos ${idea.durationMinutes} minutos, empezando por el gancho y siguiendo la estructura.`,
+    });
+    proposals.push({ ...idea, script });
+  }
+  return { referenceInsights: ideas.referenceInsights, proposals };
 }
