@@ -9,6 +9,17 @@ Está creada desde cero. No usa, importa ni depende de IMPERIO PRO ni de ningún
 
 ---
 
+## Versión para tablet (sin instalar nada)
+
+`tablet/editor-tablet.html` es el **Editor RaulitoShow IA** en una sola página que funciona en Chrome de tablet o móvil:
+
+- Crea el MP4 en el propio dispositivo con WebCodecs (H.264) y [mp4-muxer](https://www.npmjs.com/package/mp4-muxer) 5.1.3.
+- El audio va en AAC, o en Opus si el dispositivo no codifica AAC.
+- Los archivos no salen del dispositivo y no se guardan entre sesiones.
+- Prueba: `YA_MP4MUXER=<ruta a mp4-muxer.js> node tests/e2e-tablet.js`.
+
+RaulitoShow IA no tiene versión para tablet: Chrome para Android no admite extensiones.
+
 ## Arquitectura y por qué
 
 | Parte | Tecnología | Motivo |
