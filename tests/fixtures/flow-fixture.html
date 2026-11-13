@@ -1,0 +1,79 @@
+<!doctype html>
+<!--
+  FIXTURE DE PRUEBAS — NO ES GOOGLE FLOW NI FORMA PARTE DE LA APLICACIÓN.
+  Página mínima que imita la ESTRUCTURA de un cuadro de prompts (área de texto, adjuntar imagen,
+  ajustes, botón de generar y aparición de resultados) para probar automáticamente el motor de
+  RaulitoShow IA (cola, pausa, ritmo seguro, numeración, guardado, confirmaciones, CAPTCHA y errores).
+  Solo se usa en tests/e2e-extension.js. No se distribuye ni se presenta como resultado real.
+-->
+<html lang="es"><head><meta charset="utf-8"><title>Fixture de pruebas</title>
+<style>body{font-family:sans-serif;background:#111;color:#eee} #results img{width:256px;margin:4px} .composer{border:1px solid #555;padding:10px;width:700px}
+[aria-checked=true]{background:#c33;color:#fff}</style></head>
+<body>
+<h1>Fixture de pruebas (no es Google Flow)</h1>
+<div id="results"></div>
+<div class="composer" id="composer">
+  <div id="attachments"></div>
+  <textarea id="PINHOLE_TEXT_AREA_ELEMENT_ID" rows="3" cols="80"></textarea>
+  <div>
+    <button id="addImg" aria-label="Añadir imagen">+</button>
+    <input type="file" id="file" accept="image/*" style="display:none">
+    <span role="radiogroup"><button role="radio" aria-checked="true">16:9</button><button role="radio" aria-checked="false">9:16</button><button role="radio" aria-checked="false">1:1</button><button role="radio" aria-checked="false">4:3</button></span>
+    <span role="radiogroup"><button role="radio" aria-checked="false">x1</button><button role="radio" aria-checked="true">x2</button><button role="radio" aria-checked="false">x3</button><button role="radio" aria-checked="false">x4</button></span>
+    <button id="gen" aria-label="Generar">→</button>
+  </div>
+</div>
+<script>
+window.__log = { prompts: [], submitTimes: [], attachments: 0, confirmations: 0 };
+const ta = document.getElementById('PINHOLE_TEXT_AREA_ELEMENT_ID');
+document.querySelectorAll('[role=radio]').forEach(b => b.onclick = () => {
+  b.parentElement.querySelectorAll('[role=radio]').forEach(x => x.setAttribute('aria-checked', 'false'));
+  b.setAttribute('aria-checked', 'true');
+});
+document.getElementById('addImg').onclick = () => document.getElementById('file').click();
+document.getElementById('file').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  window.__log.attachments++;
+  const img = document.createElement('img'); img.src = URL.createObjectURL(f); img.style.width = '48px';
+  document.getElementById('attachments').appendChild(img);
+};
+const selected = g => [...document.querySelectorAll('[role=radiogroup]')[g].children].find(b => b.getAttribute('aria-checked') === 'true').textContent;
+let counter = 0;
+function makeImage(label) {
+  return new Promise(res => {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 288;
+    const x = c.getContext('2d'); x.fillStyle = `hsl(${(counter++ * 67) % 360},70%,45%)`; x.fillRect(0, 0, 512, 288);
+    x.fillStyle = '#fff'; x.font = '28px sans-serif'; x.fillText(label.slice(0, 30), 20, 150);
+    c.toBlob(b => res(URL.createObjectURL(b)), 'image/png');
+  });
+}
+async function produce(prompt) {
+  await new Promise(r => setTimeout(r, 1200));
+  const n = parseInt(selected(1).slice(1), 10);
+  for (let i = 0; i < n; i++) { const img = document.createElement('img'); img.src = await makeImage(prompt + ' #' + (i + 1)); document.getElementById('results').prepend(img); }
+}
+document.getElementById('gen').onclick = () => {
+  const prompt = ta.value.trim(); if (!prompt) return;
+  window.__log.prompts.push(prompt); window.__log.submitTimes.push(Date.now());
+  window.__log.aspect = selected(0); window.__log.outputs = selected(1);
+  ta.value = '';
+  if (/CAPTCHA/.test(prompt) && !window.__capDone) {
+    window.__capDone = true;
+    const f = document.createElement('iframe'); f.src = 'about:blank#recaptcha'; f.setAttribute('title', 'reCAPTCHA'); f.id = 'cap'; f.width = 300; f.height = 80;
+    document.body.appendChild(f);
+    return;
+  }
+  if (/FALLA/.test(prompt)) {
+    setTimeout(() => { const a = document.createElement('div'); a.setAttribute('role', 'alert'); a.textContent = 'Generation failed: prompt blocked by policy'; document.body.appendChild(a); setTimeout(() => a.remove(), 3000); }, 800);
+    return;
+  }
+  if (/AGENTE/.test(prompt)) {
+    const b = document.createElement('button'); b.textContent = 'Confirmar';
+    b.onclick = () => { window.__log.confirmations++; b.remove(); produce(prompt); };
+    setTimeout(() => document.body.appendChild(b), 600);
+    return;
+  }
+  produce(prompt);
+};
+</script>
+</body></html>

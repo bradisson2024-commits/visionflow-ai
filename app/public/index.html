@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YOUTUBE AUTOMATIZADO</title>
+<link rel="stylesheet" href="/common.css">
+<style>
+  header { display: flex; align-items: center; justify-content: space-between; padding: 18px 28px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header .brand { font-size: 22px; }
+  main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
+  .tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .tool { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: var(--text); transition: border-color .15s; }
+  .tool:hover { border-color: var(--red); }
+  .tool h2 { margin: 0; font-size: 20px; }
+  .tool .ico { width: 44px; height: 44px; border-radius: 10px; background: var(--red); display: grid; place-items: center; font-size: 22px; }
+  .tool .go { margin-top: auto; color: var(--red-2); font-weight: 700; }
+  section.box { margin-top: 26px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+  section.box h3 { margin: 0 0 12px; font-size: 15px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  td, th { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  th { color: var(--muted); font-weight: 600; }
+  code { background: #0f1016; padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+  ol.flow { margin: 0; padding-left: 20px; columns: 2; column-gap: 30px; }
+  ol.flow li { margin-bottom: 3px; }
+  @media (max-width: 640px) { ol.flow { columns: 1; } header { padding: 14px 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">▶ YOUTUBE <b>AUTOMATIZADO</b></div>
+  <span class="pill" id="ffmpegStatus"><span class="dot"></span> Comprobando FFmpeg…</span>
+</header>
+<main>
+  <div class="tools">
+    <a class="tool" href="/raulitoshow" id="toolRaulito">
+      <div class="ico">⚡</div>
+      <h2>RaulitoShow IA</h2>
+      <div class="muted">Automatizador de Google Flow. Panel lateral de Chrome que envía tus prompts a Flow uno por uno, con tu personaje de referencia, ritmo seguro y guardado como escena_001, escena_002…</div>
+      <div class="go">Abrir RaulitoShow IA →</div>
+    </a>
+    <a class="tool" href="/editor" id="toolEditor">
+      <div class="ico">🎬</div>
+      <h2>Editor de videos</h2>
+      <div class="muted">Editor RaulitoShow IA: tus imágenes + tu voz = tu video listo para YouTube. Organiza escenas, sincroniza con la narración y crea el MP4 con FFmpeg.</div>
+      <div class="go">Abrir Editor →</div>
+    </a>
+  </div>
+
+  <section class="box">
+    <h3>Proyectos</h3>
+    <div class="row">
+      <input type="text" id="newName" placeholder="Nombre del nuevo proyecto" maxlength="80" style="flex:1;min-width:200px">
+      <button id="createBtn">Crear proyecto</button>
+    </div>
+    <div id="projMsg" class="small muted" style="margin-top:8px"></div>
+    <table>
+      <thead><tr><th>Proyecto</th><th>Actualizado</th><th></th></tr></thead>
+      <tbody id="projects"><tr><td colspan="3" class="muted">Cargando…</td></tr></tbody>
+    </table>
+    <div class="small muted" style="margin-top:10px">Carpeta de almacenamiento: <code id="dataDir">…</code></div>
+  </section>
+
+  <section class="box">
+    <h3>Flujo de trabajo</h3>
+    <ol class="flow">
+      <li>Entrar en RaulitoShow IA (panel lateral de Chrome en Google Flow).</li>
+      <li>Seleccionar el personaje de referencia.</li>
+      <li>Elegir el formato.</li>
+      <li>Introducir o cargar los prompts.</li>
+      <li>Configurar el prefijo de estilo.</li>
+      <li>Indicar la escena inicial.</li>
+      <li>Configurar el ritmo seguro.</li>
+      <li>Iniciar la automatización de Google Flow.</li>
+      <li>Los resultados se guardan por escenas en el proyecto.</li>
+      <li>Abrir el Editor RaulitoShow IA.</li>
+      <li>Cargar las imágenes (o los resultados de RaulitoShow IA).</li>
+      <li>Cargar el audio.</li>
+      <li>Añadir el texto de escenas si se desea.</li>
+      <li>Distribuir las escenas.</li>
+      <li>Revisar el video.</li>
+      <li>Crear el MP4, comprobarlo y guardarlo.</li>
+    </ol>
+  </section>
+</main>
+<script>
+async function api(p, opt) { const r = await fetch(p, opt); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j; }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+async function load() {
+  const st = await api('/api/status');
+  const el = document.getElementById('ffmpegStatus');
+  el.innerHTML = st.ffmpeg.ok ? '<span class="dot ok"></span> FFmpeg listo' : `<span class="dot bad"></span> ${esc(st.ffmpeg.error)}`;
+  document.getElementById('dataDir').textContent = st.projectsDir;
+  const list = await api('/api/projects');
+  const tb = document.getElementById('projects');
+  tb.innerHTML = list.length ? '' : '<tr><td colspan="3" class="muted">Todavía no hay proyectos.</td></tr>';
+  for (const p of list) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><b>${esc(p.name)}</b> <span class="muted small">(${esc(p.id)})</span></td><td class="muted">${new Date(p.updatedAt).toLocaleString()}</td>
+      <td style="text-align:right"><a href="/editor?project=${encodeURIComponent(p.id)}">Abrir en el Editor</a> · <a href="/raulitoshow?project=${encodeURIComponent(p.id)}">Resultados de Flow</a></td>`;
+    tb.appendChild(tr);
+  }
+}
+document.getElementById('createBtn').onclick = async () => {
+  const name = document.getElementById('newName').value.trim();
+  const msg = document.getElementById('projMsg');
+  try { const p = await api('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    msg.textContent = `Proyecto "${p.name}" creado (id: ${p.id}).`; document.getElementById('newName').value = ''; load();
+  } catch (e) { msg.textContent = e.message; }
+};
+load().catch(e => document.getElementById('projects').innerHTML = `<tr><td colspan=3>${esc(e.message)}</td></tr>`);
+</script>
+</body>
+</html>

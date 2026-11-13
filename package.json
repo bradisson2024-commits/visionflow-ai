@@ -1,0 +1,13 @@
+{
+  "name": "youtube-automatizado",
+  "version": "1.0.0",
+  "private": true,
+  "description": "YOUTUBE AUTOMATIZADO: RaulitoShow IA (automatizador de Google Flow) + Editor RaulitoShow IA (imágenes + voz = MP4)",
+  "scripts": {
+    "start": "node app/server.js",
+    "test": "node --test tests/unit.test.js tests/api.test.js",
+    "test:e2e": "node tests/e2e-editor.js && node tests/e2e-extension.js"
+  },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED"
+}

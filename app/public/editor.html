@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor RaulitoShow IA</title>
+<link rel="stylesheet" href="/common.css">
+<link rel="stylesheet" href="/editor.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a href="/" class="back" title="Volver a YOUTUBE AUTOMATIZADO">←</a>
+    <div>
+      <div class="title">🎬 Editor RaulitoShow <b>IA</b></div>
+      <div class="subtitle">Tus imágenes + tu voz = tu video listo para YouTube</div>
+    </div>
+    <div class="spacer"></div>
+    <label class="small muted">Proyecto <select id="projectSel"></select></label>
+    <span class="small muted" id="saveState"></span>
+  </header>
+
+  <aside class="left">
+    <!-- 1. Tus imágenes -->
+    <section class="sec">
+      <h3><span class="num">1</span> Tus imágenes</h3>
+      <div class="drop" id="imgDrop" tabindex="0">
+        <div><b>Arrastra aquí una carpeta</b> con tus imágenes</div>
+        <div class="small muted">o</div>
+        <button id="pickFolderBtn">Seleccionar carpeta</button>
+      </div>
+      <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+      <input type="file" id="filesInput" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.png,.jpg,.jpeg,.webp,.gif,.bmp,.avif" multiple hidden>
+      <div class="row">
+        <button id="pickFilesBtn">Elegir imágenes sueltas</button>
+        <button id="useFlowBtn" title="Cargar las imágenes que RaulitoShow IA guardó en este proyecto">Usar resultados de RaulitoShow IA</button>
+      </div>
+      <div class="row between"><span id="imgCount" class="count">0 imágenes</span><span id="imgStatus" class="small muted"></span></div>
+      <div class="thumbs" id="thumbs"></div>
+    </section>
+
+    <!-- 2. Tu audio -->
+    <section class="sec">
+      <h3><span class="num">2</span> Tu audio (la voz)</h3>
+      <div class="drop small-drop" id="audioDrop" tabindex="0">
+        <div>Arrastra tu audio aquí <span class="muted">(MP3, WAV, M4A)</span></div>
+        <button id="pickAudioBtn">Elegir audio</button>
+      </div>
+      <input type="file" id="audioInput" accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a" hidden>
+      <div class="audio-info" id="audioInfo">
+        <div><span class="muted">Archivo:</span> <span id="audioName">—</span></div>
+        <div><span class="muted">Duración:</span> <span id="audioDur">—</span></div>
+        <div><span class="muted">Estado:</span> <span id="audioState">Sin audio</span></div>
+      </div>
+      <audio id="audioPlayer" controls preload="metadata"></audio>
+    </section>
+
+    <!-- 3. Texto de escenas -->
+    <section class="sec">
+      <h3><span class="num">3</span> Texto de escenas <span class="muted">(opcional)</span></h3>
+      <div class="drop small-drop" id="textDrop" tabindex="0">
+        <div>Arrastra <b>escenas_narracion.txt</b></div>
+        <button id="pickTextBtn">Elegir archivo de texto</button>
+      </div>
+      <input type="file" id="textInput" accept=".txt,.srt,.vtt,text/plain" hidden>
+      <textarea id="sceneText" rows="6" placeholder="O pega aquí el texto: una línea por escena.&#10;También acepta marcas de tiempo (SRT, VTT o [00:12] al inicio de cada línea)."></textarea>
+      <div id="textInfo" class="small muted">Sin texto: las imágenes se reparten con duraciones iguales.</div>
+    </section>
+
+    <!-- 4. Crea tu video -->
+    <section class="sec">
+      <h3><span class="num">4</span> Crea tu video</h3>
+      <label class="check"><input type="checkbox" id="zoomChk" checked> Movimiento suave (zoom lento)</label>
+      <div class="small muted">Efecto digital de zoom (1.00× → 1.08×) sobre imágenes fijas. No es animación generada por IA.</div>
+      <label class="field">Calidad
+        <select id="qualitySel">
+          <option value="1080p" selected>Full HD 1080p (recomendado)</option>
+          <option value="720p">HD 720p</option>
+        </select>
+      </label>
+      <button class="primary big" id="exportBtn">CREAR VIDEO MP4</button>
+      <div id="exportBox" class="export" hidden>
+        <div class="bar"><div id="exportBar"></div></div>
+        <div class="small" id="exportPct"></div>
+        <ol id="exportSteps" class="steps"></ol>
+        <div id="exportResult"></div>
+      </div>
+    </section>
+  </aside>
+
+  <main class="center">
+    <div class="viewer" id="viewer">
+      <canvas id="canvas" width="1920" height="1080"></canvas>
+      <div class="empty" id="viewerEmpty">Carga tus imágenes para ver la vista previa</div>
+    </div>
+    <div class="caption" id="caption"></div>
+    <div class="controls">
+      <button id="playBtn" class="play" title="Reproducir">▶</button>
+      <button id="pauseBtn" class="play" title="Pausar">⏸</button>
+      <span id="tCur" class="time">0:00.0</span>
+      <div class="timeline-wrap">
+        <div class="progress"><div id="progressFill"></div></div>
+        <input type="range" id="timeline" min="0" max="0" step="0.01" value="0">
+      </div>
+      <span id="tTotal" class="time">0:00.0</span>
+    </div>
+    <div class="scene-now small muted" id="sceneNow"></div>
+  </main>
+
+  <footer class="gallery">
+    <div class="gal-head">
+      <div class="gal-title" id="galTitle">Escenas — 0 imágenes — 0:00</div>
+      <div class="spacer"></div>
+      <button id="distributeBtn">Repartir con el audio</button>
+      <span class="all">Todas duran <input type="number" id="allDur" value="4" min="0.2" step="0.1"> s</span>
+      <button id="applyAllBtn">Aplicar a todas</button>
+    </div>
+    <div id="distMsg" class="small"></div>
+    <div class="cards" id="cards"></div>
+  </footer>
+</div>
+<script src="/timing.js"></script>
+<script src="/editor.js"></script>
+</body>
+</html>

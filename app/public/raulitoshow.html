@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RaulitoShow IA</title>
+<link rel="stylesheet" href="/common.css">
+<style>
+  header { display: flex; align-items: center; gap: 14px; padding: 14px 24px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header a { color: var(--muted); text-decoration: none; }
+  main { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; display: grid; gap: 18px; }
+  .box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+  .box h2 { margin: 0 0 10px; font-size: 17px; }
+  ol li { margin-bottom: 6px; }
+  code { background: #0f1016; padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+  .grid figure { margin: 0; background: #0f1016; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .grid img, .grid video { width: 100%; aspect-ratio: 16/9; object-fit: contain; background: #000; display: block; }
+  .grid figcaption { padding: 5px 8px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/">← YOUTUBE AUTOMATIZADO</a>
+  <div class="brand" style="font-size:18px">⚡ RaulitoShow <b>IA</b></div>
+</header>
+<main>
+  <div class="box">
+    <h2>Cómo usar RaulitoShow IA</h2>
+    <p class="muted">RaulitoShow IA funciona como <b>panel lateral de Chrome</b> junto a Google Flow, en tu propia sesión iniciada. No sustituye ni imita a Flow: escribe tus prompts en el cuadro de Flow, pulsa su botón de generar y descarga lo que Flow produce.</p>
+    <ol>
+      <li>En Chrome abre <code>chrome://extensions</code>, activa el <b>Modo de desarrollador</b> y pulsa <b>Cargar descomprimida</b>.</li>
+      <li>Selecciona la carpeta <code>extension/</code> de YOUTUBE AUTOMATIZADO.</li>
+      <li>Abre <a href="https://labs.google/fx/tools/flow" target="_blank" rel="noopener">Google Flow</a>, inicia sesión y abre (o crea) un proyecto de Flow.</li>
+      <li>Pulsa el icono de YOUTUBE AUTOMATIZADO en la barra de Chrome: se abre el panel <b>RaulitoShow IA</b>.</li>
+      <li>Con esta app en marcha (<code>npm start</code>), cada resultado se guarda en la carpeta <code>flow/</code> del proyecto indicado en el panel. Si la app no está en marcha, se guarda en <code>Descargas/YOUTUBE_AUTOMATIZADO/&lt;proyecto&gt;/</code>.</li>
+    </ol>
+  </div>
+  <div class="box">
+    <h2>Resultados recibidos de Flow</h2>
+    <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label>Proyecto: <select id="proj"></select></label>
+      <button id="refresh">Actualizar</button>
+      <a id="toEditor" href="/editor">Abrir en el Editor →</a>
+    </div>
+    <div id="dir" class="small muted" style="margin-top:8px"></div>
+    <div class="grid" id="grid"></div>
+  </div>
+</main>
+<script>
+async function api(p) { const r = await fetch(p); const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; }
+const qs = new URLSearchParams(location.search);
+const sel = document.getElementById('proj');
+async function init() {
+  const list = await api('/api/projects');
+  sel.innerHTML = list.map(p => `<option value="${p.id}">${p.name}</option>`).join('') || '<option value="">(sin proyectos)</option>';
+  if (qs.get('project')) sel.value = qs.get('project');
+  show();
+}
+async function show() {
+  const id = sel.value; const grid = document.getElementById('grid'); grid.innerHTML = '';
+  document.getElementById('toEditor').href = '/editor?project=' + encodeURIComponent(id);
+  if (!id) return;
+  const p = await api('/api/projects/' + encodeURIComponent(id));
+  document.getElementById('dir').textContent = 'Carpeta: ' + p.dir + '/flow';
+  const files = await api(`/api/projects/${encodeURIComponent(id)}/files/flow`);
+  if (!files.length) grid.innerHTML = '<div class="muted">Todavía no hay resultados de Flow en este proyecto.</div>';
+  for (const f of files) {
+    const u = `/api/projects/${encodeURIComponent(id)}/files/flow/${encodeURIComponent(f.name)}`;
+    const fig = document.createElement('figure');
+    fig.innerHTML = (/\.(mp4|webm)$/i.test(f.name) ? `<video src="${u}" muted controls></video>` : `<img src="${u}" loading="lazy">`) + `<figcaption>${f.name}</figcaption>`;
+    grid.appendChild(fig);
+  }
+}
+sel.onchange = show; document.getElementById('refresh').onclick = show;
+init();
+</script>
+</body>
+</html>

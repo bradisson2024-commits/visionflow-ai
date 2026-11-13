@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RaulitoShow IA</title>
+<link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+<header class="head">
+  <div class="logo">▶</div>
+  <div class="name">RaulitoShow <b>IA</b></div>
+  <div class="status">
+    <span class="pill" id="flowPill" title="Estado de la pestaña de Google Flow"><span class="dot"></span><span>Flow</span></span>
+    <span class="pill" id="appPill" title="App YOUTUBE AUTOMATIZADO (almacenamiento de proyectos)"><span class="dot"></span><span>App</span></span>
+  </div>
+</header>
+<div class="flowhint" id="flowHint" hidden></div>
+
+<!-- 1 -->
+<section class="sec">
+  <h2><span class="n">1</span> Personaje de referencia</h2>
+  <div class="ref">
+    <div class="thumb" id="refThumb"><span class="muted">Sin imagen</span></div>
+    <button class="plus" id="refAdd" title="Añadir o reemplazar imagen de referencia">+</button>
+    <div class="refinfo">
+      <div id="refName" class="small">Ninguna imagen cargada</div>
+      <button class="link" id="refRemove" hidden>Quitar</button>
+    </div>
+  </div>
+  <input type="file" id="refInput" accept="image/png,image/jpeg,image/webp" hidden>
+</section>
+
+<!-- 2 -->
+<section class="sec">
+  <h2><span class="n">2</span> Formato</h2>
+  <div class="seg" id="aspectSeg">
+    <button data-v="16:9">16:9</button><button data-v="9:16">9:16</button><button data-v="1:1">1:1</button><button data-v="4:3">4:3</button>
+  </div>
+  <div class="seg" id="outputsSeg" title="Número de resultados que Flow genera por cada prompt">
+    <button data-v="x1">x1</button><button data-v="x2">x2</button><button data-v="x3">x3</button><button data-v="x4">x4</button>
+  </div>
+  <div class="small muted">Modelo: el que tengas elegido en Flow</div>
+</section>
+
+<!-- 3 -->
+<section class="sec">
+  <h2><span class="n">3</span> Prompts</h2>
+  <textarea id="prompts" rows="7" placeholder="Un prompt por línea. Cada línea es una escena."></textarea>
+  <div class="row between">
+    <span class="count" id="promptCount">0 prompts</span>
+    <button id="txtBtn">Subir archivo .txt</button>
+    <input type="file" id="txtInput" accept=".txt,text/plain" hidden>
+  </div>
+  <label class="field">Prefijo de estilo
+    <input type="text" id="prefix" placeholder="Ej.: Estilo cinematográfico, luz cálida,">
+  </label>
+  <label class="field inline">Empezar en la escena
+    <input type="number" id="startAt" min="1" value="1">
+  </label>
+</section>
+
+<!-- 4 -->
+<section class="sec">
+  <h2><span class="n">4</span> Ritmo seguro</h2>
+  <input type="range" id="delay" min="0" max="14" step="1" value="5">
+  <div class="small" id="delayText">Pausa entre prompts: 5 s</div>
+  <label class="check"><input type="checkbox" id="saveAsScene" checked> Guardar como escena_001, escena_002...</label>
+  <label class="field inline">Proyecto
+    <input type="text" id="project" value="mi_proyecto" maxlength="60" title="Carpeta del proyecto de YOUTUBE AUTOMATIZADO donde se guardan las escenas">
+  </label>
+  <label class="check"><input type="checkbox" id="autoConfirm"> Confirmar automáticamente al agente de Flow</label>
+</section>
+
+<!-- Ejecución -->
+<section class="run">
+  <div class="btns">
+    <button class="start" id="startBtn">INICIAR</button>
+    <button class="pause" id="pauseBtn" title="Pausar / Reanudar" disabled>⏸</button>
+  </div>
+  <div class="bar"><div id="bar"></div></div>
+  <div class="row between small">
+    <span id="doneText">0 / 0 escenas completadas</span>
+    <span id="etaText">Tiempo restante: —</span>
+  </div>
+  <div class="msg" id="msg" hidden></div>
+  <ol class="scenes" id="scenes"></ol>
+  <details class="log"><summary>Registro</summary><div id="log"></div></details>
+</section>
+<script src="config.js"></script>
+<script src="sidepanel.js"></script>
+</body>
+</html>

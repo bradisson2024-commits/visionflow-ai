@@ -1,0 +1,46 @@
+:root {
+  --bg: #0d0e12;
+  --panel: #16181f;
+  --panel-2: #1e2029;
+  --line: #2a2d38;
+  --text: #e9eaf0;
+  --muted: #9a9db0;
+  --red: #e53935;
+  --red-2: #ff5248;
+  --green: #35c46a;
+  --amber: #f2b33d;
+  --blue: #4c9dff;
+  --radius: 10px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
+}
+a { color: var(--blue); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 12px; cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: #444959; background: #252834; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.primary { background: var(--red); border-color: var(--red); color: #fff; font-weight: 700; letter-spacing: .3px; }
+button.primary:hover:not(:disabled) { background: var(--red-2); border-color: var(--red-2); }
+input[type=text], input[type=number], select, textarea {
+  background: #0f1016; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: #555b70; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 99px; font-size: 12px; background: var(--panel-2); border: 1px solid var(--line); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.dot.ok { background: var(--green); } .dot.bad { background: var(--red); } .dot.warn { background: var(--amber); }
+.brand { font-weight: 800; letter-spacing: .5px; }
+.brand b { color: var(--red); }
+.notice { padding: 8px 10px; border-radius: 8px; background: #1b1d26; border: 1px solid var(--line); font-size: 13px; }
+.notice.warn { border-color: #6b5420; background: #231d10; color: #f5d08a; }
+.notice.err { border-color: #6b2522; background: #26100f; color: #ffb3ad; }
+.notice.ok { border-color: #1f5a37; background: #0f2418; color: #9fe8bb; }
