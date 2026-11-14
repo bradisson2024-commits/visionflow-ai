@@ -18,7 +18,7 @@
   const blobToDataUrl = blob => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
 
   async function saveMedia(src, project, baseName) {
-    const msg = { type: 'ya:saveResult', project, baseName };
+    const msg = { type: 'ya:saveResult', project, baseName, kind: /\.(mp4|webm)(\?|$)/i.test(src) ? 'video' : 'image' };
     if (src.startsWith('blob:') || src.startsWith('data:')) msg.dataUrl = src.startsWith('data:') ? src : await blobToDataUrl(await (await fetch(src)).blob());
     else msg.url = src;
     let r = await chrome.runtime.sendMessage(msg);

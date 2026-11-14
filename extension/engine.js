@@ -178,27 +178,85 @@ function createRaulitoEngine(io) {
   function composerImages(composer) {
     return [...composer.querySelectorAll('img')].filter(visible).length;
   }
-  async function attachReference(file, composer) {
-    let input = composer.querySelector('input[type="file"]') || document.querySelector('input[type="file"][accept*="image"]') || document.querySelector('input[type="file"]');
-    if (!input) {
-      // Algunos diseños crean el input al pulsar el botón de añadir (+ / añadir imagen / ingredientes).
-      const addBtn = clickables(composer).find(b => /(add|añadir|agregar|upload|subir|image|imagen|ingredient|ingrediente|^\+$|add_photo|add_circle)/i.test(labelOf(b)));
-      if (addBtn) { realClick(addBtn); await sleep(800); }
-      input = document.querySelector('input[type="file"]');
-      if (!input) return false;
-    }
-    const before = composerImages(composer);
-    const dt = new DataTransfer();
-    dt.items.add(file);
+  const UPLOAD_RE = /(upload|subir|cargar|importar|file_upload|add_photo_alternate|from computer|desde (el|tu) (equipo|ordenador|dispositivo))/i;
+  const ADD_RE = /(add|añadir|agregar|upload|subir|image|imagen|ingredient|ingrediente|^\+$|add_photo|add_circle)/i;
+  const findFileInput = () => [...document.querySelectorAll('input[type="file"]')].find(i => i.id !== 'ya-ref-holder');
+  function setInputFile(input, file) {
+    const dt = new DataTransfer(); dt.items.add(file);
     input.files = dt.files;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-    for (let i = 0; i < 40; i++) {           // hasta 20 s para que Flow muestre la miniatura
-      await sleep(500);
-      if (composerImages(composer) > before) return true;
-      const h = detectHumanCheck(); if (h && !/cuadro de prompts/.test(h)) throw new HumanNeeded(h);
+  }
+  // Prepara el interceptor del selector de archivos (extension/picker-main.js, mundo principal de la página).
+  function armPicker(file) {
+    let h = document.getElementById('ya-ref-holder');
+    if (!h) { h = document.createElement('input'); h.type = 'file'; h.id = 'ya-ref-holder'; h.hidden = true; h.style.display = 'none'; document.documentElement.appendChild(h); }
+    const dt = new DataTransfer(); dt.items.add(file); h.files = dt.files;
+    document.documentElement.setAttribute('data-ya-armed', '1');
+    return new Promise(res => {
+      const t = setTimeout(() => { document.removeEventListener('ya-picked', on); res(false); }, 10000);
+      function on() { clearTimeout(t); res(true); }
+      document.addEventListener('ya-picked', on, { once: true });
+    });
+  }
+  const disarmPicker = () => document.documentElement.removeAttribute('data-ya-armed');
+
+  // Adjunta el personaje al cuadro de prompts de Flow. Flow (nov. 2026): botón "+" del cuadro → ventana de
+  // imágenes → botón "subir" → selector de archivos. El selector se intercepta y recibe la imagen directamente.
+  async function attachReference(file, composer) {
+    const before = composerImages(composer);
+    let input = composer.querySelector('input[type="file"]') || findFileInput();
+    let opened = false;
+    if (input) setInputFile(input, file);
+    else {
+      const picked = armPicker(file);
+      const addBtn = clickables(composer).find(b => ADD_RE.test(labelOf(b)) && !SUBMIT_RE.test(labelOf(b)));
+      if (addBtn) { realClick(addBtn); opened = true; await sleep(1000); }
+      input = findFileInput();
+      if (input) { disarmPicker(); setInputFile(input, file); }
+      else {
+        const up = clickables().find(b => b !== addBtn && UPLOAD_RE.test(labelOf(b)));
+        if (!up) { disarmPicker(); if (opened) pressEscape(); return false; }
+        realClick(up);
+        if (!(await picked)) { disarmPicker(); pressEscape(); return false; }
+      }
     }
+    // Esperar a que Flow suba la imagen y la muestre en el cuadro (hasta 40 s).
+    for (let i = 0; i < 80; i++) {
+      await sleep(500);
+      if (composerImages(composerOf(findPromptBox() || composer)) > before) { await closeAssetPanel(); return true; }
+      const h = detectHumanCheck(); if (h && !/cuadro de prompts/.test(h)) throw new HumanNeeded(h);
+      // Si Flow solo la añadió a la biblioteca, se elige la imagen recién subida (la primera de la lista).
+      if (i === 10 || i === 30) {
+        const tile = newestUploadedTile(file.name);
+        if (tile) realClick(tile);
+      }
+    }
+    await closeAssetPanel();
     return 'sin_confirmar';
+  }
+  function newestUploadedTile(name) {
+    const stem = name.replace(/\.[^.]+$/, '').toLowerCase();
+    const byName = clickables().find(b => stem && textOf(b).toLowerCase().includes(stem));
+    if (byName) return byName;
+    // La ventana de imágenes es el primer contenedor por encima del botón "subir" que contiene miniaturas.
+    let panel = clickables().find(b => UPLOAD_RE.test(labelOf(b)));
+    for (let i = 0; panel && i < 10; i++) {
+      panel = panel.parentElement;
+      const img = panel && [...panel.querySelectorAll('img')].find(im => visible(im) && !im.closest('#raulitoshow-ia-panel'));
+      if (img) return img.closest('button, [role="button"], [role="option"], [role="gridcell"], [tabindex]') || img;
+    }
+    return null;
+  }
+  async function closeAssetPanel() {
+    const up = clickables().find(b => UPLOAD_RE.test(labelOf(b)));
+    if (!up) return;
+    pressEscape(); await sleep(400);
+    const still = clickables().find(b => UPLOAD_RE.test(labelOf(b)));
+    if (still) {
+      const close = clickables().find(b => /^(close|cerrar|×|✕|x)$/i.test(textOf(b)) || /(close|cerrar)/i.test(b.getAttribute('aria-label') || ''));
+      if (close) { realClick(close); await sleep(400); }
+    }
   }
 
   // ---------------- resultados ----------------

@@ -75,13 +75,27 @@ function waitDownload(id) {
 }
 
 // msg: { project, baseName, url? , dataUrl? }
+// Si el archivo no se puede leer con fetch (p. ej. Flow lo sirve desde otro dominio sin CORS), se descarga
+// con el gestor de descargas de Chrome, que usa la sesión del navegador y no depende de CORS.
+async function downloadByUrl(msg) {
+  const project = cleanProject(msg.project);
+  const ext = (/\.(png|jpe?g|webp|gif|mp4|webm)(\?|#|$)/i.exec(msg.url) || [])[1] || (msg.kind === 'video' ? 'mp4' : 'png');
+  const id = await chrome.downloads.download({ url: msg.url, filename: `YOUTUBE_AUTOMATIZADO/${project}/${msg.baseName}.${ext.toLowerCase().replace('jpeg', 'jpg')}`, conflictAction: 'uniquify', saveAs: false });
+  const where = await waitDownload(id);
+  return { where, name: where ? where.split(/[\\/]/).pop() : `${msg.baseName}.${ext}`, via: 'downloads' };
+}
+
 async function saveResult(msg) {
   let blob;
   if (msg.dataUrl) blob = dataUrlToBlob(msg.dataUrl);
   else {
-    const r = await fetch(msg.url, { credentials: 'include' });
-    if (!r.ok) throw new Error(`No se pudo descargar el resultado (${r.status})`);
-    blob = await r.blob();
+    try {
+      const r = await fetch(msg.url, { credentials: 'include' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      blob = await r.blob();
+    } catch (e) {
+      return downloadByUrl(msg);
+    }
   }
   if (!blob.size) throw new Error('El resultado descargado está vacío');
   const type = (blob.type || '').split(';')[0];

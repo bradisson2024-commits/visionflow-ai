@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "YOUTUBE AUTOMATIZADO — RaulitoShow IA",
   "short_name": "RaulitoShow IA",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "RaulitoShow IA: automatiza tus prompts en Google Flow desde un panel lateral, con personaje de referencia, ritmo seguro y guardado por escenas.",
   "action": {
     "default_title": "Abrir RaulitoShow IA"
@@ -23,11 +23,25 @@
   "host_permissions": [
     "https://flow.google.com/*",
     "https://labs.google/*",
+    "https://*.google.com/*",
     "https://*.googleusercontent.com/*",
-    "https://storage.googleapis.com/*",
+    "https://*.googleapis.com/*",
+    "https://*.gstatic.com/*",
     "http://127.0.0.1:5317/*"
   ],
   "content_scripts": [
+    {
+      "matches": [
+        "https://flow.google.com/*",
+        "https://labs.google/fx/tools/flow*",
+        "https://labs.google/fx/*/tools/flow*"
+      ],
+      "js": [
+        "picker-main.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
     {
       "matches": [
         "https://flow.google.com/*",

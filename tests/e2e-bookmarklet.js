@@ -63,7 +63,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const log = await p.evaluate(() => window.__log);
     assert.deepStrictEqual(log.prompts, ['Estilo acuarela, el zorro cruza el río AGENTE', 'Estilo acuarela, el zorro duerme']);
     assert.strictEqual(log.aspect, '9:16'); assert.strictEqual(log.outputs, 'x2');
-    assert.strictEqual(log.attachments, 1); assert.strictEqual(log.confirmations, 1);
+    assert.strictEqual(log.uploads, 1); assert.strictEqual(log.attachments, 1); assert.strictEqual(log.confirmations, 1);
     assert.ok(log.submitTimes[1] - log.submitTimes[0] >= 2000);
     await sleep(500);
     assert.deepStrictEqual(downloads.sort(), ['escena_002.png', 'escena_002_2.png', 'escena_003.png', 'escena_003_2.png']);

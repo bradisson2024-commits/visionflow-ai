@@ -12,12 +12,16 @@
 <body>
 <h1>Fixture de pruebas (no es Google Flow)</h1>
 <div id="results"></div>
+<!-- Ventana de imágenes como la de Flow: "+" la abre; "subir" crea un input de archivo NO insertado en la página y llama a .click() -->
+<div id="assets" role="dialog" style="display:none;border:1px solid #555;padding:8px;width:500px">
+  <div class="bar"><span>Images</span> <input placeholder="Search"> <button id="uploadBtn" aria-label="Upload"><i class="ms">upload</i></button> <button id="closeAssets" aria-label="Close"><i class="ms">close</i></button></div>
+  <div id="tiles" style="display:flex;gap:6px;margin-top:6px"><span id="noAssets">No assets found.</span></div>
+</div>
 <div class="composer" id="composer">
   <div id="attachments"></div>
   <textarea id="PINHOLE_TEXT_AREA_ELEMENT_ID" rows="3" cols="80"></textarea>
   <div>
-    <button id="addImg" aria-label="Añadir imagen">+</button>
-    <input type="file" id="file" accept="image/*" style="display:none">
+    <button id="addImg" aria-label="Add media"><i class="ms">add</i></button>
     <!-- Como Flow (nov. 2026): un chip "Nano Banana Pro ▭ x2" abre un menú con botones icono + texto, sin atributos ARIA de selección -->
     <button id="chip"><i class="ms">banana</i> Nano Banana Pro <i class="ms" id="chipIcon">crop_16_9</i> <span id="chipX">x2</span></button>
     <div id="menu" style="display:none">
@@ -39,12 +43,27 @@ document.querySelectorAll('#menu .grp button').forEach(b => b.onclick = () => {
   document.getElementById('chipX').textContent = selected(1);
   document.getElementById('chipIcon').textContent = b.parentElement === document.querySelectorAll('#menu .grp')[0] ? b.querySelector('i').textContent : document.getElementById('chipIcon').textContent;
 });
-document.getElementById('addImg').onclick = () => document.getElementById('file').click();
-document.getElementById('file').onchange = e => {
-  const f = e.target.files[0]; if (!f) return;
-  window.__log.attachments++;
-  const img = document.createElement('img'); img.src = URL.createObjectURL(f); img.style.width = '48px';
-  document.getElementById('attachments').appendChild(img);
+const assets = document.getElementById('assets');
+document.getElementById('addImg').onclick = () => { assets.style.display = 'block'; };
+document.getElementById('closeAssets').onclick = () => { assets.style.display = 'none'; };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') assets.style.display = 'none'; });
+document.getElementById('uploadBtn').onclick = () => {
+  const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
+  input.onchange = () => {
+    const f = input.files[0]; if (!f) return;
+    window.__log.uploads = (window.__log.uploads || 0) + 1;
+    document.getElementById('noAssets').remove && document.getElementById('noAssets') && document.getElementById('noAssets').remove();
+    const tile = document.createElement('button'); tile.className = 'tile';
+    const im = document.createElement('img'); im.src = URL.createObjectURL(f); im.style.width = '64px'; tile.appendChild(im);
+    tile.onclick = () => {   // elegir la imagen la adjunta al cuadro de prompts
+      window.__log.attachments++;
+      const a = document.createElement('img'); a.src = im.src; a.style.width = '48px';
+      document.getElementById('attachments').appendChild(a);
+      assets.style.display = 'none';
+    };
+    document.getElementById('tiles').prepend(tile);
+  };
+  input.click();
 };
 const selected = g => { const b = document.querySelectorAll('#menu .grp')[g].querySelector('.sel'); return [...b.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim(); };
 let counter = 0;
@@ -59,7 +78,12 @@ function makeImage(label) {
 async function produce(prompt) {
   await new Promise(r => setTimeout(r, 1200));
   const n = parseInt(selected(1).slice(1), 10);
-  for (let i = 0; i < n; i++) { const img = document.createElement('img'); img.src = await makeImage(prompt + ' #' + (i + 1)); document.getElementById('results').prepend(img); }
+  const xo = /[?&]xo=1/.test(location.search);
+  for (let i = 0; i < n; i++) {
+    const img = document.createElement('img');
+    img.src = xo ? `http://localhost:${location.port}/img/${Date.now()}_${i}.png` : await makeImage(prompt + ' #' + (i + 1));
+    document.getElementById('results').prepend(img);
+  }
 }
 document.getElementById('gen').onclick = () => {
   const prompt = ta.value.trim(); if (!prompt) return;

@@ -22,16 +22,21 @@ function prepareExtension() {
   const dir = tmpDir('ya-ext-');
   fs.cpSync(path.join(__dirname, '../extension'), dir, { recursive: true });
   const man = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
-  man.content_scripts[0].matches.push('http://127.0.0.1/fixture/*');
+  for (const cs of man.content_scripts) cs.matches.push('http://127.0.0.1/fixture/*');
   man.host_permissions.push('http://127.0.0.1/*');
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(man, null, 2));
   fs.appendFileSync(path.join(dir, 'config.js'), `\n// SOLO PRUEBAS\nYA_CONFIG.FLOW_MATCHES.push('http://127.0.0.1/fixture/*');\nYA_CONFIG.GENERATION_TIMEOUT_MS = 20000;\n`);
   return dir;
 }
 
+let fixtureImg = null;
 function fixtureServer() {
   const html = fs.readFileSync(path.join(__dirname, 'fixtures/flow-fixture.html'));
-  return http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html); }).listen(FIX_PORT, '127.0.0.1');
+  return http.createServer((req, res) => {
+    // Imágenes "de otro dominio" (localhost, sin cabeceras CORS ni permiso de la extensión)
+    if (req.url.startsWith('/img/')) { res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(fixtureImg); }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html);
+  }).listen(FIX_PORT, '127.0.0.1');
 }
 
 async function startApp(DATA) {
@@ -44,6 +49,7 @@ async function startApp(DATA) {
   const DATA = tmpDir('ya-data-');
   const DL = tmpDir('ya-downloads-');
   const media = makeMedia(tmpDir('ya-media-'));
+  fixtureImg = fs.readFileSync(media.imgs[3]);
   const extDir = prepareExtension();
   const fix = fixtureServer();
   let app = await startApp(DATA);
@@ -134,6 +140,7 @@ async function startApp(DATA) {
     const log = await flow.evaluate(() => window.__log);
     assert.deepStrictEqual(log.prompts, ['Estilo acuarela, el zorro cruza el río AGENTE', 'Estilo acuarela, el zorro duerme', 'Estilo acuarela, el zorro despierta', 'Estilo acuarela, quinta escena']);
     assert.strictEqual(log.aspect, '9:16'); assert.strictEqual(log.outputs, 'x2');
+    assert.strictEqual(log.uploads, 1, 'personaje subido por la ventana de imágenes sin abrir el selector de archivos');
     assert.strictEqual(log.attachments, 1, 'personaje adjuntado (Flow lo conserva en el cuadro)');
     assert.strictEqual(log.confirmations, 1, 'confirmación automática al agente');
     for (let i = 1; i < log.submitTimes.length; i++) assert.ok(log.submitTimes[i] - log.submitTimes[i - 1] >= 2000, 'ritmo seguro respetado');
@@ -142,7 +149,7 @@ async function startApp(DATA) {
     const sig = fs.readFileSync(path.join(DATA, 'proyectos', 'cuento_zorro', 'flow', 'escena_003.png')).subarray(0, 8).toString('hex');
     assert.strictEqual(sig, '89504e470d0a1a0a');
     assert.strictEqual(await panel.textContent('#etaText'), 'Terminado');
-    step('4 escenas completadas: prefijo aplicado, 9:16/x2 seleccionados en la página, personaje adjuntado, agente confirmado, pausas ≥ 2 s');
+    step('4 escenas completadas: prefijo aplicado, 9:16/x2 seleccionados en el menú, personaje subido y adjuntado automáticamente (+ → subir), agente confirmado, pausas ≥ 2 s');
     step('Guardado real como escena_002…escena_005 (x2 → _2) en el proyecto: ' + files.join(', '));
 
     // Pausa y reanudación (conserva el progreso)
@@ -182,6 +189,18 @@ async function startApp(DATA) {
     await panel.screenshot({ path: path.join(SHOTS, 'raulitoshow-error.png'), fullPage: true });
     assert.ok(await panel.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'el panel no se desborda horizontalmente');
     step('Error informado por la página → escena en "Error" y la cola continúa');
+
+    // Imágenes servidas desde otro dominio sin CORS: fetch falla ("Failed to fetch") → descarga con el gestor de Chrome
+    await flow.goto(`http://127.0.0.1:${FIX_PORT}/fixture/flow-fixture.html?xo=1`); await sleep(800);
+    await panel.fill('#prompts', 'imagen de otro dominio');
+    await panel.fill('#project', 'otro_dominio');
+    await panel.click('#startBtn');
+    await panel.waitForFunction(() => document.getElementById('doneText').textContent.startsWith('1 / 1'), null, { timeout: 40000 });
+    const xoWhere = await panel.locator('#scenes li .f').first().textContent();
+    assert.match(xoWhere, /YOUTUBE_AUTOMATIZADO[\\/]otro_dominio[\\/]escena_001\.png$/);
+    assert.ok(fs.existsSync(xoWhere) && fs.readFileSync(xoWhere).subarray(0, 4).toString('hex') === '89504e47', 'PNG real descargado');
+    step('Imagen servida desde otro dominio sin CORS ("Failed to fetch"): descargada igualmente → ' + xoWhere);
+    await panel.fill('#project', 'cuento zorro');
 
     // Sin la app → se guarda en Descargas/YOUTUBE_AUTOMATIZADO/<proyecto>/
     app.kill(); await sleep(500);
