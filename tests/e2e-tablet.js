@@ -47,8 +47,20 @@ const step = m => console.log('✓', m);
     await p.setInputFiles('#audioInput', M.audio);
     await p.waitForFunction(() => /6\.0\d s/.test(document.getElementById('audioDur').textContent));
     step('Audio M4A y MP3 con duración real');
-    await p.setInputFiles('#textInput', M.txt);
+    // 📄 CARGAR ARCHIVO TXT con un archivo real de Windows (ANSI), saltos CRLF y líneas vacías
+    const ansiTxt = path.join(tmpDir('ya-txt-'), 'escenas_narracion.txt');
+    fs.writeFileSync(ansiTxt, Buffer.from('Había una vez un niño.\r\n\r\nCantó una canción junto al río.\r\n   \r\nLa señal llegó al amanecer.\r\nY así terminó la historia de Juan.\r\n', 'latin1'));
+    assert.ok(await p.getByRole('button', { name: '📄 CARGAR ARCHIVO TXT' }).isVisible());
+    await p.setInputFiles('#textInput', ansiTxt);
     await p.waitForFunction(() => /4 líneas/.test(document.getElementById('textInfo').textContent));
+    assert.match(await p.textContent('#textMsg'), /✓ «escenas_narracion\.txt» cargado: 4 líneas → escenas 001 a 004\. \(codificación Windows-1252/);
+    assert.match(await p.locator('#textPreview li').nth(1).textContent(), /Escena 002\s*Cantó una canción junto al río\.\s*→ imagen: escena_002\.png/);
+    assert.strictEqual(await p.locator('#textPreview li').count(), 4);
+    // Archivo que no es de texto → error claro, el texto anterior se conserva
+    await p.setInputFiles('#textInput', M.imgs[0]);
+    await p.waitForFunction(() => /no es un archivo de texto/.test(document.getElementById('textMsg').textContent));
+    assert.match(await p.inputValue('#sceneText'), /señal llegó/);
+    step('📄 CARGAR ARCHIVO TXT en el Editor: archivo ANSI real con tildes/ñ → 4 escenas numeradas y asociadas a sus imágenes; archivo no válido → mensaje');
     await p.click('#distributeBtn');
     assert.match(await p.textContent('#distMsg'), /APROXIMADA/);
     await p.fill('#sceneText', '[00:00] a\n[00:01] b\n[00:03] c\n[00:04.5] d');

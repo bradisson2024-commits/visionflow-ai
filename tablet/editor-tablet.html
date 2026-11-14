@@ -93,6 +93,13 @@ button.big { padding: 14px; font-size: 16px; }
 .card .meta { padding: 5px 7px; font-size: 12px; display: grid; gap: 1px; font-variant-numeric: tabular-nums; }
 .card .meta b { font-size: 13px; }
 
+.txtbtn { width: 100%; font-weight: 800; letter-spacing: .3px; border-style: dashed; }
+.tprev { list-style: none; margin: 6px 0 0; padding: 0; max-height: 220px; overflow-y: auto; display: grid; gap: 3px; font-size: 12px; }
+.tprev li { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 6px; }
+.tprev li b { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+.tprev li span { overflow-wrap: anywhere; }
+.tprev li em { grid-column: 2; color: var(--muted); font-style: normal; font-size: 11px; }
+.tprev li.miss em { color: var(--warn); }
 @media (max-width: 900px) {
   html, body { height: auto; }
   .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "top" "center" "gallery" "left"; height: auto; }
@@ -145,12 +152,14 @@ button.big { padding: 14px; font-size: 16px; }
     <section class="sec">
       <h2><span class="num">3</span> Texto de escenas <span class="muted">(opcional)</span></h2>
       <div class="drop" id="textDrop">
-        <div>Arrastra <b>escenas_narracion.txt</b></div>
-        <button id="pickTextBtn" type="button">Elegir archivo de texto</button>
+        <button id="pickTextBtn" type="button" class="txtbtn">📄 CARGAR ARCHIVO TXT</button>
+        <div class="small muted">o arrastra aquí <b>escenas_narracion.txt</b></div>
       </div>
       <input type="file" id="textInput" accept=".txt,.srt,.vtt,text/plain" hidden>
+      <div id="textMsg" class="notice ok" hidden></div>
       <textarea id="sceneText" rows="5" placeholder="O pega aquí el texto: una línea por escena.&#10;También acepta marcas de tiempo: SRT, VTT o [00:12] al inicio de cada línea."></textarea>
       <div id="textInfo" class="small muted">Sin texto: las imágenes se reparten con duraciones iguales.</div>
+      <details class="tprev-box"><summary class="small muted">Ver escenas numeradas</summary><ol id="textPreview" class="tprev"></ol></details>
     </section>
 
     <section class="sec">
@@ -356,7 +365,48 @@ $('audioInput').onchange = e => { const f = e.target.files[0]; e.target.value = 
 setupDrop($('audioDrop'), dt => { const f = dt.files[0]; if (f) setAudio(f); });
 
 // ================= 3. Texto =================
-async function setTextFile(file) { $('sceneText').value = (await file.text()); onText(); }
+// Lee un .txt real respetando su codificación: UTF-8 (con o sin BOM), UTF-16 (BOM) o Windows-1252/ANSI.
+async function readTextFile(file) {
+  if (!/\.(txt|srt|vtt)$/i.test(file.name) && file.type !== 'text/plain') throw new Error(`«${file.name}» no es un archivo de texto (.txt, .srt o .vtt).`);
+  const b = new Uint8Array(await file.arrayBuffer());
+  let text, encoding = 'UTF-8';
+  if (b[0] === 0xFF && b[1] === 0xFE) { text = new TextDecoder('utf-16le').decode(b.subarray(2)); encoding = 'UTF-16'; }
+  else if (b[0] === 0xFE && b[1] === 0xFF) { text = new TextDecoder('utf-16be').decode(b.subarray(2)); encoding = 'UTF-16'; }
+  else {
+    const start = b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF ? 3 : 0;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(b.subarray(start)); }
+    catch { text = new TextDecoder('windows-1252').decode(b); encoding = 'Windows-1252 (ANSI)'; }
+  }
+  return { text: text.replace(/\r\n?/g, '\n'), encoding };
+}
+const pad3 = n => String(n).padStart(3, '0');
+// 📄 CARGAR ARCHIVO TXT: una línea con texto = una escena, en el orden del archivo (o marcas SRT/VTT/[mm:ss]).
+async function setTextFile(file) {
+  const msg = $('textMsg');
+  try {
+    const { text, encoding } = await readTextFile(file);
+    $('sceneText').value = text; onText();
+    const n = parsed.lines.length;
+    msg.hidden = false; msg.className = n ? 'notice ok' : 'notice warn';
+    msg.textContent = n ? `✓ «${file.name}» cargado: ${n} ${parsed.mode === 'timed' ? 'escenas con marcas de tiempo' : (n === 1 ? 'línea' : 'líneas')} → escenas ${pad3(1)}${n > 1 ? ' a ' + pad3(n) : ''}.` + (encoding.startsWith('UTF-8') ? '' : ` (codificación ${encoding})`)
+      : `«${file.name}» no tiene ninguna línea con texto.`;
+  } catch (e) { msg.hidden = false; msg.className = 'notice err'; msg.textContent = e.message; }
+}
+function renderTextPreview(imgName) {
+  const ol = $('textPreview'); ol.textContent = '';
+  const lines = parsed.lines, n = Math.max(lines.length, parsed.mode === 'none' ? 0 : state.images.length);
+  for (let i = 0; i < Math.min(n, 1000); i++) {
+    const li = document.createElement('li');
+    const b = document.createElement('b'); b.textContent = `Escena ${pad3(i + 1)}`;
+    const sp = document.createElement('span'); sp.textContent = lines[i] || '(sin texto)';
+    const em = document.createElement('em');
+    const name = imgName(i);
+    em.textContent = name ? `→ imagen: ${name}` : '→ sin imagen para esta línea';
+    if (!name || !lines[i]) li.className = 'miss';
+    if (parsed.mode === 'timed' && parsed.cues[i]) em.textContent += ` · empieza en ${T.fmt(parsed.cues[i].start)}`;
+    li.append(b, sp, em); ol.appendChild(li);
+  }
+}
 function onText() { parsed = T.parseSceneText($('sceneText').value); renderTextInfo(); renderCaption(); }
 function renderTextInfo() {
   const n = state.images.length; let s;
@@ -365,6 +415,7 @@ function renderTextInfo() {
   else s = `${parsed.lines.length} líneas → asociadas en orden a las imágenes 1…${Math.min(n, parsed.lines.length) || parsed.lines.length}.`;
   if (parsed.mode !== 'none' && n && parsed.lines.length !== n) s += ` Atención: hay ${n} imágenes.`;
   $('textInfo').textContent = s;
+  renderTextPreview(i => state.images[i] && state.images[i].name);
 }
 $('sceneText').addEventListener('input', onText);
 $('pickTextBtn').onclick = () => $('textInput').click();

@@ -188,11 +188,49 @@
   setupDrop($('audioDrop'), dt => { const f = dt.files[0]; if (f) setAudio(f); });
 
   // ---------- 3. Texto ----------
+  // Lee un .txt real respetando su codificación: UTF-8 (con o sin BOM), UTF-16 (BOM) o Windows-1252/ANSI.
+  async function readTextFile(file) {
+    if (!/\.(txt|srt|vtt)$/i.test(file.name) && file.type !== 'text/plain') throw new Error(`«${file.name}» no es un archivo de texto (.txt, .srt o .vtt).`);
+    const b = new Uint8Array(await file.arrayBuffer());
+    let text, encoding = 'UTF-8';
+    if (b[0] === 0xFF && b[1] === 0xFE) { text = new TextDecoder('utf-16le').decode(b.subarray(2)); encoding = 'UTF-16'; }
+    else if (b[0] === 0xFE && b[1] === 0xFF) { text = new TextDecoder('utf-16be').decode(b.subarray(2)); encoding = 'UTF-16'; }
+    else {
+      const start = b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF ? 3 : 0;
+      try { text = new TextDecoder('utf-8', { fatal: true }).decode(b.subarray(start)); }
+      catch { text = new TextDecoder('windows-1252').decode(b); encoding = 'Windows-1252 (ANSI)'; }
+    }
+    return { text: text.replace(/\r\n?/g, '\n'), encoding };
+  }
+  const pad3 = n => String(n).padStart(3, '0');
+  // 📄 CARGAR ARCHIVO TXT: una línea con texto = una escena, en el orden del archivo (o marcas SRT/VTT/[mm:ss]).
   async function setTextFile(file) {
-    const txt = await file.text();
-    $('sceneText').value = txt;
-    onTextChange();
-    try { await upload('texto', file); } catch { /* la copia es opcional */ }
+    const msg = $('textMsg');
+    try {
+      const { text, encoding } = await readTextFile(file);
+      $('sceneText').value = text;
+      onTextChange();
+      const n = parsed.lines.length;
+      msg.hidden = false; msg.className = n ? 'notice ok' : 'notice warn';
+      msg.textContent = n ? `✓ «${file.name}» cargado: ${n} ${parsed.mode === 'timed' ? 'escenas con marcas de tiempo' : (n === 1 ? 'línea' : 'líneas')} → escenas ${pad3(1)}${n > 1 ? ' a ' + pad3(n) : ''}.` + (encoding.startsWith('UTF-8') ? '' : ` (codificación ${encoding})`)
+        : `«${file.name}» no tiene ninguna línea con texto.`;
+      try { await upload('texto', file); } catch { /* la copia en el proyecto es opcional */ }
+    } catch (e) { msg.hidden = false; msg.className = 'notice err'; msg.textContent = e.message; }
+  }
+  function renderTextPreview(imgName) {
+    const ol = $('textPreview'); ol.textContent = '';
+    const lines = parsed.lines, n = Math.max(lines.length, parsed.mode === 'none' ? 0 : state.images.length);
+    for (let i = 0; i < Math.min(n, 1000); i++) {
+      const li = document.createElement('li');
+      const b = document.createElement('b'); b.textContent = `Escena ${pad3(i + 1)}`;
+      const sp = document.createElement('span'); sp.textContent = lines[i] || '(sin texto)';
+      const em = document.createElement('em');
+      const name = imgName(i);
+      em.textContent = name ? `→ imagen: ${name}` : '→ sin imagen para esta línea';
+      if (!name || !lines[i]) li.className = 'miss';
+      if (parsed.mode === 'timed' && parsed.cues[i]) em.textContent += ` · empieza en ${T.fmt(parsed.cues[i].start)}`;
+      li.append(b, sp, em); ol.appendChild(li);
+    }
   }
   function onTextChange() {
     state.text = $('sceneText').value;
@@ -207,6 +245,7 @@
     else s = `${parsed.lines.length} líneas → asociadas en orden a las imágenes 1…${Math.min(n, parsed.lines.length) || parsed.lines.length}.`;
     if (parsed.mode !== 'none' && n && parsed.lines.length !== n) s += ` Atención: hay ${n} imágenes.`;
     $('textInfo').textContent = s;
+    renderTextPreview(i => state.images[i] && (state.images[i].label || state.images[i].file));
   }
   $('sceneText').addEventListener('input', onTextChange);
   $('pickTextBtn').onclick = () => $('textInput').click();

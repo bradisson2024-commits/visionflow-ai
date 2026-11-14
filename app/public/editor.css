@@ -74,3 +74,10 @@ button.big { padding: 12px; font-size: 15px; }
   .controls { gap: 6px; }
   .time { min-width: 44px; }
 }
+.txtbtn { width: 100%; font-weight: 800; letter-spacing: .3px; border-style: dashed; }
+.tprev { list-style: none; margin: 6px 0 0; padding: 0; max-height: 220px; overflow-y: auto; display: grid; gap: 3px; font-size: 12px; }
+.tprev li { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 6px; }
+.tprev li b { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+.tprev li span { overflow-wrap: anywhere; }
+.tprev li em { grid-column: 2; color: var(--muted); font-style: normal; font-size: 11px; }
+.tprev li.miss em { color: var(--amber); }

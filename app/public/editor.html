@@ -58,13 +58,15 @@
     <!-- 3. Texto de escenas -->
     <section class="sec">
       <h3><span class="num">3</span> Texto de escenas <span class="muted">(opcional)</span></h3>
-      <div class="drop small-drop" id="textDrop" tabindex="0">
-        <div>Arrastra <b>escenas_narracion.txt</b></div>
-        <button id="pickTextBtn">Elegir archivo de texto</button>
+      <div class="drop small-drop" id="textDrop">
+        <button id="pickTextBtn" class="txtbtn">📄 CARGAR ARCHIVO TXT</button>
+        <div class="small muted">o arrastra aquí <b>escenas_narracion.txt</b></div>
       </div>
       <input type="file" id="textInput" accept=".txt,.srt,.vtt,text/plain" hidden>
+      <div id="textMsg" class="notice ok" hidden></div>
       <textarea id="sceneText" rows="6" placeholder="O pega aquí el texto: una línea por escena.&#10;También acepta marcas de tiempo (SRT, VTT o [00:12] al inicio de cada línea)."></textarea>
       <div id="textInfo" class="small muted">Sin texto: las imágenes se reparten con duraciones iguales.</div>
+      <details class="tprev-box"><summary class="small muted">Ver escenas numeradas</summary><ol id="textPreview" class="tprev"></ol></details>
     </section>
 
     <!-- 4. Crea tu video -->
