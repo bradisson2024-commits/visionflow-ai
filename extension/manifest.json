@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "YOUTUBE AUTOMATIZADO — RaulitoShow IA",
   "short_name": "RaulitoShow IA",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "RaulitoShow IA: automatiza tus prompts en Google Flow desde un panel lateral, con personaje de referencia, ritmo seguro y guardado por escenas.",
   "icons": {
     "16": "icons/icon16.png",

@@ -30,6 +30,14 @@ function prepareExtension() {
 }
 
 let fixtureImg = null;
+// Extensión de pruebas que, como algunos "descargadores de imágenes", renombra TODAS las descargas.
+function prepareRenamer() {
+  const dir = tmpDir('ya-renamer-');
+  fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({ manifest_version: 3, name: 'Renombrador de pruebas', version: '1.0', permissions: ['downloads'], background: { service_worker: 'bg.js' } }));
+  fs.writeFileSync(path.join(dir, 'bg.js'), "chrome.downloads.onDeterminingFilename.addListener((item, suggest) => suggest({ filename: crypto.randomUUID() + '.png' }));");
+  return dir;
+}
+
 function fixtureServer() {
   const html = fs.readFileSync(path.join(__dirname, 'fixtures/flow-fixture.html'));
   return http.createServer((req, res) => {
@@ -51,6 +59,7 @@ async function startApp(DATA) {
   const media = makeMedia(tmpDir('ya-media-'));
   fixtureImg = fs.readFileSync(media.imgs[3]);
   const extDir = prepareExtension();
+  const renamerDir = prepareRenamer();
   const fix = fixtureServer();
   let app = await startApp(DATA);
   // Chromium se lanza directamente (no con launchPersistentContext) para que las descargas de
@@ -60,7 +69,7 @@ async function startApp(DATA) {
   fs.writeFileSync(path.join(profile, 'Default', 'Preferences'), JSON.stringify({ download: { default_directory: DL, prompt_for_download: false } }));
   const CDP_PORT = 9333;
   const chrome = spawn(process.env.YA_CHROME || chromium.executablePath(), ['--headless=new', '--no-sandbox', '--no-first-run', '--disable-features=DisableLoadExtensionCommandLineSwitch',
-    `--user-data-dir=${profile}`, `--remote-debugging-port=${CDP_PORT}`, `--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`,
+    `--user-data-dir=${profile}`, `--remote-debugging-port=${CDP_PORT}`, `--disable-extensions-except=${renamerDir},${extDir}`, `--load-extension=${renamerDir},${extDir}`,
     '--window-size=420,1100', 'about:blank'], { stdio: 'ignore' });
   let browser;
   for (let i = 0; i < 100 && !browser; i++) { try { browser = await chromium.connectOverCDP(`http://127.0.0.1:${CDP_PORT}`); } catch { await sleep(150); } }
@@ -199,7 +208,7 @@ async function startApp(DATA) {
     const xoWhere = await panel.locator('#scenes li .f').first().textContent();
     assert.match(xoWhere, /YOUTUBE_AUTOMATIZADO[\\/]otro_dominio[\\/]escena_001\.png$/);
     assert.ok(fs.existsSync(xoWhere) && fs.readFileSync(xoWhere).subarray(0, 4).toString('hex') === '89504e47', 'PNG real descargado');
-    step('Imagen servida desde otro dominio sin CORS ("Failed to fetch"): descargada igualmente → ' + xoWhere);
+    step('Imagen servida desde otro dominio sin CORS ("Failed to fetch"): descargada igualmente, con su nombre escena_NNN aunque otra extensión renombra las descargas → ' + xoWhere);
     await panel.fill('#project', 'cuento zorro');
 
     // Sin la app → se guarda en Descargas/YOUTUBE_AUTOMATIZADO/<proyecto>/

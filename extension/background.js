@@ -65,10 +65,28 @@ function waitDownload(id) {
 // msg: { project, baseName, url? , dataUrl? }
 // Si el archivo no se puede leer con fetch (p. ej. Flow lo sirve desde otro dominio sin CORS), se descarga
 // con el gestor de descargas de Chrome, que usa la sesión del navegador y no depende de CORS.
+// Otras extensiones de descargas (p. ej. descargadores de imágenes) pueden cambiar el nombre de TODAS las
+// descargas. Para las descargas de RaulitoShow se vuelve a imponer el nombre escena_NNN al determinar el
+// nombre del archivo (la extensión instalada más recientemente tiene prioridad).
+const wantedNames = new Map(); // url → ruta sin extensión
+const MIME_EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'video/mp4': 'mp4', 'video/webm': 'webm' };
+chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
+  const base = item.byExtensionId === chrome.runtime.id && wantedNames.get(item.url);
+  if (!base) return; // no es nuestra: Chrome sigue normalmente
+  wantedNames.delete(item.url);
+  const ext = MIME_EXT[(item.mime || '').split(';')[0]] || (/\.([a-z0-9]{2,4})$/i.exec(item.filename || '') || [])[1] || 'png';
+  suggest({ filename: `${base}.${ext.toLowerCase().replace('jpeg', 'jpg')}`, conflictAction: 'uniquify' });
+});
+async function startDownload(url, base, ext) {
+  wantedNames.set(url, base);
+  setTimeout(() => wantedNames.delete(url), 120000);
+  return chrome.downloads.download({ url, filename: `${base}.${ext}`, conflictAction: 'uniquify', saveAs: false });
+}
+
 async function downloadByUrl(msg) {
   const project = cleanProject(msg.project);
   const ext = (/\.(png|jpe?g|webp|gif|mp4|webm)(\?|#|$)/i.exec(msg.url) || [])[1] || (msg.kind === 'video' ? 'mp4' : 'png');
-  const id = await chrome.downloads.download({ url: msg.url, filename: `YOUTUBE_AUTOMATIZADO/${project}/${msg.baseName}.${ext.toLowerCase().replace('jpeg', 'jpg')}`, conflictAction: 'uniquify', saveAs: false });
+  const id = await startDownload(msg.url, `YOUTUBE_AUTOMATIZADO/${project}/${msg.baseName}`, ext.toLowerCase().replace('jpeg', 'jpg'));
   const where = await waitDownload(id);
   return { where, name: where ? where.split(/[\\/]/).pop() : `${msg.baseName}.${ext}`, via: 'downloads' };
 }
@@ -98,12 +116,7 @@ async function saveResult(msg) {
     if (!r.ok) throw new Error(j.error || 'La app no pudo guardar el archivo');
     return { where: j.path, name: j.name, via: 'app' };
   }
-  const id = await chrome.downloads.download({
-    url: await blobToDataUrl(blob),
-    filename: `YOUTUBE_AUTOMATIZADO/${project}/${name}`,
-    conflictAction: 'uniquify',
-    saveAs: false,
-  });
+  const id = await startDownload(await blobToDataUrl(blob), `YOUTUBE_AUTOMATIZADO/${project}/${name.replace(/\.[^.]+$/, '')}`, name.split('.').pop());
   const where = await waitDownload(id);
   return { where, name: where ? where.split(/[\\/]/).pop() : name, via: 'downloads' };
 }
