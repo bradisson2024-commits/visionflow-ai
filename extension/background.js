@@ -5,24 +5,12 @@
  */
 importScripts('config.js');
 
-// Icono de la barra dibujado en tiempo de ejecución (cuadro rojo con triángulo blanco de "play").
-function drawIcon() {
-  const imageData = {};
-  for (const s of [16, 32]) {
-    const c = new OffscreenCanvas(s, s); const x = c.getContext('2d');
-    x.fillStyle = '#e53935'; x.beginPath(); x.roundRect(0, 0, s, s, s / 5); x.fill();
-    x.fillStyle = '#fff'; x.beginPath(); x.moveTo(s * 0.38, s * 0.27); x.lineTo(s * 0.38, s * 0.73); x.lineTo(s * 0.76, s * 0.5); x.closePath(); x.fill();
-    imageData[s] = x.getImageData(0, 0, s, s);
-  }
-  chrome.action.setIcon({ imageData }).catch(() => {});
-}
 function setup() {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
-  drawIcon();
 }
 chrome.runtime.onInstalled.addListener(setup);
 chrome.runtime.onStartup.addListener(setup);
-drawIcon();
+setup();
 
 async function appStatus() {
   try {
