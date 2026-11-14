@@ -199,6 +199,45 @@ async function startApp(DATA) {
     assert.ok(await panel.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'el panel no se desborda horizontalmente');
     step('Error informado por la página → escena en "Error" y la cola continúa');
 
+    // 📄 CARGAR ARCHIVO TXT: archivo real en Windows-1252 (Bloc de notas), CRLF, líneas vacías, 60 prompts
+    await flow.reload(); await sleep(800);
+    const lines60 = Array.from({ length: 60 }, (_, i) => `Escena ${i + 1}: canción del niño junto al río, señal Nº ${i + 1}`);
+    const ansi = path.join(tmpDir('ya-txt-'), 'guion_ansi.txt');
+    fs.writeFileSync(ansi, Buffer.from(lines60.map((l, i) => (i % 10 === 0 ? '\r\n   \r\n' : '') + l).join('\r\n') + '\r\n', 'latin1'));
+    await panel.setInputFiles('#txtInput', ansi);
+    await panel.waitForFunction(() => document.getElementById('promptCount').textContent === '60 prompts');
+    assert.strictEqual(await panel.textContent('#promptRange'), 'Escenas 001–060');
+    assert.match(await panel.textContent('#txtMsg'), /✓ «guion_ansi\.txt» cargado: 60 prompts → escenas 001 a 060\. \(codificación Windows-1252/);
+    assert.match(await panel.locator('#promptPreview li').first().textContent(), /Prompt 001 — Escena 001\s*Escena 1: canción del niño junto al río, señal Nº 1/);
+    assert.match(await panel.locator('#promptPreview li').nth(59).textContent(), /Prompt 060 — Escena 060/);
+    // Arrastrar y soltar otro .txt (UTF-8) reemplaza el anterior
+    await panel.evaluate(() => {
+      const dt = new DataTransfer(); dt.items.add(new File(['primera línea\n\nsegunda línea ñ\n'], 'arrastrado.txt', { type: 'text/plain' }));
+      document.getElementById('prompts').dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+    });
+    await panel.waitForFunction(() => document.getElementById('promptCount').textContent === '2 prompts');
+    assert.match(await panel.textContent('#txtMsg'), /«arrastrado\.txt» cargado: 2 prompts → escenas 001 a 002\.$/);
+    // Archivo que no es .txt → mensaje de error, no cambia nada
+    await panel.evaluate(() => {
+      const dt = new DataTransfer(); dt.items.add(new File(['x'], 'foto.png', { type: 'image/png' }));
+      document.getElementById('prompts').dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+    });
+    await panel.waitForFunction(() => /no es un archivo \.txt/.test(document.getElementById('txtMsg').textContent));
+    assert.strictEqual(await panel.textContent('#promptCount'), '2 prompts');
+    // Volver al de 60, editar una línea a mano y empezar en la escena 59: el motor recibe exactamente esas líneas
+    await panel.setInputFiles('#txtInput', ansi);
+    await panel.waitForFunction(() => document.getElementById('promptCount').textContent === '60 prompts');
+    const edited = (await panel.inputValue('#prompts')).replace('señal Nº 60', 'señal Nº 60 (editada)');
+    await panel.fill('#prompts', edited);
+    await panel.fill('#prefix', ''); await panel.fill('#startAt', '59'); await panel.locator('#delay').fill('0');
+    await panel.click('#outputsSeg button[data-v="x1"]');
+    await panel.click('#startBtn');
+    await panel.waitForFunction(() => document.getElementById('doneText').textContent.startsWith('2 / 2'), null, { timeout: 60000 });
+    assert.deepStrictEqual(await flow.evaluate(() => window.__log.prompts.slice(-2)), [lines60[58], lines60[59] + ' (editada)']);
+    assert.match(await panel.locator('#scenes li').first().textContent(), /^\s*059/);
+    await panel.fill('#startAt', '1');
+    step('📄 CARGAR ARCHIVO TXT: archivo ANSI real con tildes/ñ, CRLF y líneas vacías → 60 prompts (001–060), mensaje, arrastrar y soltar, reemplazo, editar y empezar en la 59 → el motor envía el texto exacto');
+
     // Imágenes servidas desde otro dominio sin CORS: fetch falla ("Failed to fetch") → descarga con el gestor de Chrome
     await flow.goto(`http://127.0.0.1:${FIX_PORT}/fixture/flow-fixture.html?xo=1`); await sleep(800);
     await panel.fill('#prompts', 'imagen de otro dominio');

@@ -18,7 +18,7 @@
   const DEFAULTS = { aspect: '16:9', outputs: 'x1', prompts: '', prefix: '', startAt: 1, delay: 5, saveAsScene: true, autoConfirm: false };
   const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
-  const parsePrompts = t => String(t || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const parsePrompts = t => RaulitoTxt.prompts(t);
 
   // ---------- IndexedDB: personaje de referencia ----------
   function idb() {
@@ -94,6 +94,9 @@
   .pill { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; background: #1e2029; border: 1px solid #2a2d38; font-size: 12px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #9a9db0; } .dot.ok { background: #35c46a; } .dot.bad { background: #e53935; } .dot.warn { background: #f2b33d; }
   .min { min-height: 34px; padding: 4px 10px; }
+  .txtbtn { width: 100%; font-weight: 800; border-style: dashed; border-color: #4a4f60; }
+  .txtmsg { border-radius: 8px; padding: 6px 9px; font-size: 12px; background: #0f2418; border: 1px solid #1f5a37; color: #9fe8bb; }
+  .txtmsg.err { background: #26100f; border-color: #6b2522; color: #ffb3ad; }
   .sec { background: #16181f; border: 1px solid #2a2d38; border-radius: 10px; padding: 10px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
   h2 { margin: 0; font-size: 14px; display: flex; align-items: center; gap: 7px; }
   .n { width: 22px; height: 22px; border-radius: 50%; background: #e53935; color: #fff; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; }
@@ -151,7 +154,19 @@
   el.refRemove = h('button', { type: 'button', class: 'link small', hidden: true, onclick: async () => { await idbSet('ref', null); renderRef(); } }, 'Quitar');
   el.prompts = h('textarea', { placeholder: 'Un prompt por línea. Cada línea es una escena.', oninput: e => { settings.prompts = e.target.value; saveSettings(); renderCount(); } });
   el.count = h('span', { class: 'count' }, '0 prompts');
-  el.txtInput = h('input', { type: 'file', accept: '.txt,text/plain', hidden: true, onchange: async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; const t = (await f.text()).replace(/^﻿/, ''); el.prompts.value = t; settings.prompts = t; saveSettings(); renderCount(); } });
+  el.txtMsg = h('div', { class: 'txtmsg', hidden: true });
+  async function loadTxt(file) {
+    try {
+      const { text, encoding } = await RaulitoTxt.read(file);
+      el.prompts.value = text; settings.prompts = text; saveSettings(); renderCount();
+      const n = RaulitoTxt.prompts(text).length;
+      el.txtMsg.hidden = false; el.txtMsg.classList.toggle('err', !n);
+      el.txtMsg.textContent = RaulitoTxt.message(file.name, n) + (encoding.startsWith('UTF-8') ? '' : ` (codificación ${encoding})`);
+    } catch (err) { el.txtMsg.hidden = false; el.txtMsg.classList.add('err'); el.txtMsg.textContent = err.message; }
+  }
+  el.txtInput = h('input', { type: 'file', accept: '.txt,text/plain', hidden: true, onchange: e => { const f = e.target.files[0]; e.target.value = ''; if (f) loadTxt(f); } });
+  el.prompts.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+  el.prompts.addEventListener('drop', e => { const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) { e.preventDefault(); loadTxt(f); } });
   el.prefix = h('input', { type: 'text', placeholder: 'Ej.: Estilo cinematográfico, luz cálida,', oninput: e => { settings.prefix = e.target.value; saveSettings(); } });
   el.startAt = h('input', { type: 'number', min: '1', value: '1', oninput: e => { settings.startAt = Math.max(1, parseInt(e.target.value, 10) || 1); saveSettings(); } });
   el.delay = h('input', { type: 'range', min: '0', max: '14', step: '1', oninput: e => { settings.delay = Number(e.target.value); saveSettings(); el.delayText.textContent = `Pausa entre prompts: ${settings.delay} s`; } });
@@ -178,8 +193,9 @@
         h('div', { class: 'refinfo' }, el.refName, el.refRemove)), el.refInput),
     h('section', { class: 'sec' }, h('h2', {}, h('span', { class: 'n' }, '2'), 'Formato'), el.aspectSeg, el.outputsSeg,
       h('div', { class: 'small muted' }, 'Modelo: el que tengas elegido en Flow')),
-    h('section', { class: 'sec' }, h('h2', {}, h('span', { class: 'n' }, '3'), 'Prompts'), el.prompts,
-      h('div', { class: 'row' }, el.count, h('button', { type: 'button', onclick: () => el.txtInput.click() }, 'Subir archivo .txt'), el.txtInput),
+    h('section', { class: 'sec' }, h('h2', {}, h('span', { class: 'n' }, '3'), 'Prompts'),
+      h('button', { type: 'button', class: 'txtbtn', onclick: () => el.txtInput.click() }, '📄 CARGAR ARCHIVO TXT'), el.txtInput, el.prompts,
+      h('div', { class: 'row' }, el.count, el.range = h('span', { class: 'small muted' })), el.txtMsg,
       h('label', { class: 'field' }, 'Prefijo de estilo', el.prefix),
       h('label', { class: 'field inline' }, 'Empezar en la escena', el.startAt)),
     h('section', { class: 'sec' }, h('h2', {}, h('span', { class: 'n' }, '4'), 'Ritmo seguro'), el.delay, el.delayText,
@@ -217,7 +233,11 @@
   function renderSegs() {
     for (const [seg, key] of [[el.aspectSeg, 'aspect'], [el.outputsSeg, 'outputs']]) seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === settings[key]));
   }
-  function renderCount() { const n = parsePrompts(settings.prompts).length; el.count.textContent = `${n} ${n === 1 ? 'prompt' : 'prompts'}`; }
+  function renderCount() {
+    const n = parsePrompts(settings.prompts).length;
+    el.count.textContent = `${n} ${n === 1 ? 'prompt' : 'prompts'}`;
+    if (el.range) el.range.textContent = n ? `Escenas ${RaulitoTxt.pad(1)}–${RaulitoTxt.pad(n)}` : '';
+  }
   function showMsg(t, ok) { el.msg.hidden = !t; el.msg.textContent = t || ''; el.msg.classList.toggle('ok', !!ok); }
 
   async function onStart() {

@@ -10,7 +10,7 @@
   let flowTab = null;      // {id, ready, info}
   let hasRef = false;
 
-  const parsePrompts = txt => String(txt || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const parsePrompts = txt => RaulitoTxt.prompts(txt);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   async function saveSettings() { await chrome.storage.local.set({ [SET_KEY]: settings }); }
@@ -44,18 +44,44 @@
 
   // ---------- 3. Prompts ----------
   function renderCount() {
-    const n = parsePrompts(settings.prompts).length;
+    const list = RaulitoTxt.prompts(settings.prompts);
+    const n = list.length;
     $('promptCount').textContent = `${n} ${n === 1 ? 'prompt' : 'prompts'}`;
+    $('promptRange').textContent = n ? `Escenas ${RaulitoTxt.pad(1)}–${RaulitoTxt.pad(n)}` : '';
     $('startAt').max = String(Math.max(1, n));
+    const ol = $('promptPreview'); ol.textContent = '';
+    list.slice(0, 500).forEach((p, i) => {
+      const li = document.createElement('li');
+      const a = document.createElement('span'); a.textContent = `Prompt ${RaulitoTxt.pad(i + 1)} — Escena ${RaulitoTxt.pad(i + 1)}`;
+      const b = document.createElement('span'); b.textContent = p; b.title = p;
+      li.append(a, b); ol.appendChild(li);
+    });
+    if (n > 500) { const li = document.createElement('li'); li.textContent = `… y ${n - 500} más`; ol.appendChild(li); }
+  }
+  function txtMsg(t, err) { const m = $('txtMsg'); m.hidden = !t; m.textContent = t || ''; m.classList.toggle('err', !!err); }
+  // Carga un .txt real: cada línea con texto es un prompt/escena, en el orden del archivo. Reemplaza lo anterior.
+  async function loadTxt(file) {
+    try {
+      const { text, encoding } = await RaulitoTxt.read(file);
+      $('prompts').value = text; settings.prompts = text; renderCount(); await saveSettings();
+      const n = RaulitoTxt.prompts(text).length;
+      txtMsg(RaulitoTxt.message(file.name, n) + (encoding.startsWith('UTF-8') ? '' : ` (codificación ${encoding})`), !n);
+    } catch (e) { txtMsg(e.message, true); }
   }
   $('prompts').addEventListener('input', e => { settings.prompts = e.target.value; renderCount(); saveSettings(); });
   $('txtBtn').onclick = () => $('txtInput').click();
-  $('txtInput').onchange = async e => {
-    const f = e.target.files[0]; e.target.value = '';
-    if (!f) return;
-    const txt = (await f.text()).replace(/^﻿/, '');
-    $('prompts').value = txt; settings.prompts = txt; renderCount(); saveSettings();
-  };
+  $('txtInput').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) loadTxt(f); };
+  // Arrastrar y soltar un .txt sobre el campo de prompts o sobre el botón
+  for (const id of ['prompts', 'txtBtn']) {
+    const el = $(id);
+    el.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); $('prompts').classList.add('drop'); } });
+    el.addEventListener('dragleave', () => $('prompts').classList.remove('drop'));
+    el.addEventListener('drop', e => {
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!f) return;
+      e.preventDefault(); $('prompts').classList.remove('drop'); loadTxt(f);
+    });
+  }
   $('prefix').addEventListener('input', e => { settings.prefix = e.target.value; saveSettings(); });
   $('startAt').addEventListener('input', e => { settings.startAt = Math.max(1, parseInt(e.target.value, 10) || 1); saveSettings(); });
 

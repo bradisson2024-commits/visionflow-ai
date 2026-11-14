@@ -175,8 +175,15 @@ function createRaulitoEngine(io) {
   }
 
   // ---------------- personaje de referencia ----------------
+  // Miniaturas adjuntas en el cuadro de prompts: <img> o elementos con imagen de fondo.
   function composerImages(composer) {
-    return [...composer.querySelectorAll('img')].filter(visible).length;
+    const imgs = [...composer.querySelectorAll('img')].filter(visible).length;
+    const bgs = [...composer.querySelectorAll('div, span, button')].filter(el => {
+      if (!visible(el)) return false;
+      const bg = getComputedStyle(el).backgroundImage;
+      return bg && bg !== 'none' && /url\(/.test(bg);
+    }).length;
+    return imgs + bgs;
   }
   const UPLOAD_RE = /(upload|subir|cargar|importar|file_upload|add_photo_alternate|from computer|desde (el|tu) (equipo|ordenador|dispositivo))/i;
   const ADD_RE = /(add|añadir|agregar|upload|subir|image|imagen|ingredient|ingrediente|^\+$|add_photo|add_circle)/i;
@@ -362,14 +369,23 @@ function createRaulitoEngine(io) {
     if (cfg.useRef) {
       const ref = await io.getRefFile();
       if (ref && !run.refManual) {
-        // Se adjunta en cada prompt cuando el cuadro de Flow no conserva ya una imagen adjunta.
-        if (composerImages(composerOf(findPromptBox())) === 0) {
-          const ok = await attachReference(ref, composerOf(findPromptBox()));
+        // El personaje se sube UNA vez por ejecución: Flow lo conserva en el cuadro entre generaciones.
+        // Solo se vuelve a subir si se adjuntó con confirmación visible y esa miniatura ya no está.
+        const count = composerImages(composerOf(findPromptBox()));
+        const needs = !run.refAttach ? count === 0 : (run.refAttach === 'confirmado' && count === 0);
+        if (needs) {
+          let ok = await attachReference(ref, composerOf(findPromptBox()));
+          if (!ok) {                       // un reintento automático antes de pedir ayuda
+            pressEscape(); await sleep(1500);
+            ok = await attachReference(ref, composerOf(findPromptBox()));
+          }
           if (!ok) {
             await patchRun(r => { r.refManual = true; });
-            throw new HumanNeeded('No encuentro dónde adjuntar imágenes en Flow. Adjunta tu personaje manualmente en el cuadro de Flow y pulsa Reanudar.');
+            throw new HumanNeeded('No pude adjuntar tu personaje en Flow (lo intenté dos veces). Adjúntalo manualmente en el cuadro de Flow y pulsa Reanudar: no te lo volveré a pedir en esta ejecución.');
           }
-          if (ok === 'sin_confirmar') await log(`Escena ${scene.n}: personaje enviado a Flow, pero Flow no mostró miniatura de confirmación.`);
+          await patchRun(r => { r.refAttach = ok === true ? 'confirmado' : 'sin_confirmar'; });
+          run.refAttach = ok === true ? 'confirmado' : 'sin_confirmar';
+          if (ok === 'sin_confirmar') await log(`Escena ${scene.n}: personaje enviado a Flow (Flow no mostró miniatura reconocible; se da por adjuntado y no se volverá a subir).`);
           else await log(`Escena ${scene.n}: personaje de referencia adjuntado.`);
         }
       }

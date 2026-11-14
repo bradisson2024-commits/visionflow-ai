@@ -52,6 +52,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     fs.writeFileSync(txt, 'un zorro en el bosque\nel zorro cruza el río AGENTE\nel zorro duerme\n');
     await panel('input[accept^=".txt"]').setInputFiles(txt);
     await p.waitForFunction(() => document.getElementById('raulitoshow-ia-panel').shadowRoot.querySelector('.count').textContent === '3 prompts');
+    assert.match(await panel('.txtmsg').textContent(), /✓ «prompts\.txt» cargado: 3 prompts → escenas 001 a 003\./);
+    assert.ok(await panel('button:has-text("📄 CARGAR ARCHIVO TXT")').isVisible());
     await panel('input[type=text]').fill('Estilo acuarela,');
     await panel('input[type=number]').fill('2');
     await panel('input[type=range]').fill('2');
@@ -128,6 +130,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await p.waitForFunction(() => /^2 \/ 3 escenas completadas · 1 con error/.test(document.getElementById('raulitoshow-ia-panel').shadowRoot.querySelector('.row.small span').textContent), null, { timeout: 60000 });
     assert.match(await panel('ol li').nth(1).textContent(), /Error.*Flow no pudo generar esta escena: Something went wrong/s);
     step('Límite de uso de Flow → pausa con aviso y sin gastar escenas; Reanudar reenvía la escena; tarjeta "Failed" → Error y sigue');
+
+    // Personaje: miniatura sin <img> (imagen de fondo) → se sube UNA sola vez; si Flow lo quita tras cada imagen → se vuelve a poner solo
+    for (const [mode, expectUploads] of [['bg=1', 1], ['clear=1', 3]]) {
+      await p.goto(`http://127.0.0.1:${PORT}/fixture?${mode}`); await runBookmarklet();
+      await panel('textarea').fill(`ref uno ${mode}\nref dos\nref tres`);
+      await panel('input[type=range]').fill('0');
+      await panel('button.start').click();
+      await p.waitForFunction(m => { try { const r = JSON.parse(localStorage.ya_run); return r.scenes[0].prompt === `ref uno ${m}` && r.status === 'done'; } catch { return false; } }, mode, { timeout: 90000 });
+      const lg = await p.evaluate(() => window.__log);
+      assert.strictEqual(lg.uploads, expectUploads, `${mode}: subidas del personaje ${JSON.stringify(lg)} ${await p.evaluate(() => localStorage.ya_run)}`);
+      assert.strictEqual(lg.prompts.length, 3);
+    }
+    step('Personaje: con miniatura no reconocible se sube una sola vez (no lo vuelve a pedir); si Flow lo quita tras cada imagen, lo vuelve a poner solo');
 
     // Vista vertical (tablet en vertical / móvil)
     await p.setViewportSize({ width: 600, height: 960 });

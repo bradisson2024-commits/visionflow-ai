@@ -46,12 +46,15 @@
 <!-- 3 -->
 <section class="sec">
   <h2><span class="n">3</span> Prompts</h2>
-  <textarea id="prompts" rows="7" placeholder="Un prompt por línea. Cada línea es una escena."></textarea>
+  <button id="txtBtn" class="txtbtn">📄 CARGAR ARCHIVO TXT</button>
+  <input type="file" id="txtInput" accept=".txt,text/plain" hidden>
+  <textarea id="prompts" rows="7" placeholder="Un prompt por línea. Cada línea es una escena.&#10;También puedes arrastrar aquí un archivo .txt."></textarea>
   <div class="row between">
     <span class="count" id="promptCount">0 prompts</span>
-    <button id="txtBtn">Subir archivo .txt</button>
-    <input type="file" id="txtInput" accept=".txt,text/plain" hidden>
+    <span class="small muted" id="promptRange"></span>
   </div>
+  <div class="txtmsg" id="txtMsg" hidden></div>
+  <details class="preview"><summary class="small muted">Ver escenas numeradas</summary><ol id="promptPreview"></ol></details>
   <label class="field">Prefijo de estilo
     <input type="text" id="prefix" placeholder="Ej.: Estilo cinematográfico, luz cálida,">
   </label>
@@ -88,6 +91,7 @@
   <details class="log"><summary>Registro</summary><div id="log"></div></details>
 </section>
 <script src="config.js"></script>
+<script src="txt-loader.js"></script>
 <script src="sidepanel.js"></script>
 </body>
 </html>

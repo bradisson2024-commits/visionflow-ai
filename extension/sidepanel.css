@@ -61,3 +61,10 @@ input[type=range] { width: 100%; accent-color: var(--red); }
 .log div { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); white-space: pre-wrap; max-height: 160px; overflow-y: auto; }
 body { overflow-x: hidden; }
 .sec, .run { min-width: 0; }
+.txtbtn { width: 100%; font-weight: 800; letter-spacing: .3px; padding: 9px; border-style: dashed; border-color: #4a4f60; }
+textarea.drop { border-color: var(--red); background: #2a1616; }
+.txtmsg { border-radius: 8px; padding: 6px 9px; font-size: 12px; background: #0f2418; border: 1px solid #1f5a37; color: #9fe8bb; }
+.txtmsg.err { background: #26100f; border-color: #6b2522; color: #ffb3ad; }
+.preview ol { list-style: none; margin: 4px 0 0; padding: 0; max-height: 180px; overflow-y: auto; font-size: 11px; display: grid; gap: 2px; }
+.preview li { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 6px; color: var(--muted); }
+.preview li span:last-child { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -52,12 +52,14 @@ document.getElementById('uploadBtn').onclick = () => {
   input.onchange = () => {
     const f = input.files[0]; if (!f) return;
     window.__log.uploads = (window.__log.uploads || 0) + 1;
-    document.getElementById('noAssets').remove && document.getElementById('noAssets') && document.getElementById('noAssets').remove();
+    const na = document.getElementById('noAssets'); if (na) na.remove();
     const tile = document.createElement('button'); tile.className = 'tile';
     const im = document.createElement('img'); im.src = URL.createObjectURL(f); im.style.width = '64px'; tile.appendChild(im);
     tile.onclick = () => {   // elegir la imagen la adjunta al cuadro de prompts
       window.__log.attachments++;
-      const a = document.createElement('img'); a.src = im.src; a.style.width = '48px';
+      let a;
+      if (/[?&]bg=1/.test(location.search)) { a = document.createElement('div'); a.style.cssText = `width:48px;height:48px;display:inline-block;background-size:cover;background-image:url(${im.src})`; }
+      else { a = document.createElement('img'); a.src = im.src; a.style.width = '48px'; }
       document.getElementById('attachments').appendChild(a);
       assets.style.display = 'none';
     };
@@ -79,6 +81,7 @@ function makeImage(label) {
 }
 async function produce(prompt) {
   await new Promise(r => setTimeout(r, 1200));
+  if (/[?&]clear=1/.test(location.search)) document.getElementById('attachments').textContent = '';
   const n = parseInt(selected(1).slice(1), 10);
   const xo = /[?&]xo=1/.test(location.search);
   for (let i = 0; i < n; i++) {

@@ -12,6 +12,7 @@ const terser = require(process.env.YA_TERSER || 'terser');
 (async () => {
   const src = '(()=>{' + fs.readFileSync(path.join(root, 'extension/picker-main.js'), 'utf8') + '\n' +
     fs.readFileSync(path.join(root, 'extension/engine.js'), 'utf8') + '\n' +
+    fs.readFileSync(path.join(root, 'extension/txt-loader.js'), 'utf8') + '\n' +
     fs.readFileSync(path.join(root, 'tablet/raulitoshow-panel.js'), 'utf8') + '\n})();';
   const out = await terser.minify(src, { compress: { passes: 2 }, mangle: true, format: { ascii_only: true, comments: false } });
   const code = out.code;
