@@ -1,0 +1,14 @@
+{
+  "topic": "La miel que no caduca",
+  "title": "Este alimento puede durar miles de años sin estropearse",
+  "description": "Arqueólogos han hallado miel en tumbas egipcias milenarias. ¿Por qué la miel casi no se estropea? #curiosidades #datoscuriosos #ciencia",
+  "tags": ["miel", "ciencia", "egipto"],
+  "scenes": [
+    {"section": "hook", "text": "Hay un alimento en tu cocina que podría durar más que tú. Mucho más.", "image_query": "honey jar close up"},
+    {"section": "context", "text": "Hablamos de la miel. Arqueólogos que excavaban tumbas del antiguo Egipto encontraron vasijas con miel de miles de años de antigüedad.", "image_query": "egyptian pyramids desert"},
+    {"section": "context", "text": "La miel tiene muy poca agua y es muy ácida. En ese ambiente, casi ninguna bacteria ni hongo consigue sobrevivir.", "image_query": "honeycomb macro"},
+    {"section": "twist", "text": "Pero hay un secreto más. Las abejas añaden una enzima que, al contacto con un poco de humedad, produce peróxido de hidrógeno, el mismo antiséptico que usamos para limpiar heridas.", "image_query": "bee on flower"},
+    {"section": "ending", "text": "Eso sí, si le añades agua, puede fermentar. Así que guárdala bien cerrada. Suscríbete para más curiosidades como esta.", "image_query": "honey dripping spoon"}
+  ],
+  "facts_to_verify": ["Hallazgo de miel en tumbas egipcias", "Enzima glucosa oxidasa produce peróxido de hidrógeno"]
+}

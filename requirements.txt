@@ -1,0 +1,7 @@
+requests>=2.31
+Pillow>=10.0
+python-dotenv>=1.0
+google-api-python-client>=2.100
+google-auth-oauthlib>=1.2
+edge-tts>=6.1
+pytest>=8.0

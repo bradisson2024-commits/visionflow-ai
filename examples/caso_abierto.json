@@ -1,0 +1,14 @@
+{
+  "topic": "El incidente del Paso Diátlov",
+  "title": "Nueve excursionistas, una tienda rajada desde dentro",
+  "description": "Febrero de 1959, montes Urales. Nueve montañeros abandonaron su tienda en plena noche. ¿Qué ocurrió? #misterio #casosinresolver #diatlov",
+  "tags": ["paso diatlov", "misterio", "urales"],
+  "scenes": [
+    {"section": "hook", "text": "Nueve personas cortaron su propia tienda desde dentro y huyeron hacia la nieve, de noche, casi sin ropa.", "image_query": "snowy mountain night"},
+    {"section": "context", "text": "Febrero de 1959. Un grupo de montañeros experimentados, liderado por Ígor Diátlov, cruzaba los montes Urales del norte, en la Unión Soviética.", "image_query": "ural mountains winter"},
+    {"section": "context", "text": "Cuando los equipos de rescate encontraron el campamento, la tienda estaba rajada por dentro. Ninguno de los nueve sobrevivió.", "image_query": "abandoned tent snow"},
+    {"section": "twist", "text": "Durante décadas surgieron todo tipo de teorías. Pero en dos mil diecinueve, la fiscalía rusa reabrió el caso y concluyó que la causa más probable fue una pequeña avalancha. Un estudio científico de dos mil veintiuno respaldó que una placa de nieve pudo caer sobre la tienda.", "image_query": "avalanche snow slope"},
+    {"section": "ending", "text": "Aun así, muchos creen que el caso sigue abierto. ¿Tú qué crees? Déjalo en los comentarios y suscríbete.", "image_query": "foggy forest winter"}
+  ],
+  "facts_to_verify": ["Fiscalía rusa 2019: avalancha", "Gaume y Puzrin, Communications Earth & Environment, 2021"]
+}

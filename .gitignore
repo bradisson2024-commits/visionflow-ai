@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+credentials/*
+!credentials/.gitkeep
+data/*
+!data/.gitkeep
+.pytest_cache/

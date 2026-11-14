@@ -1,0 +1,47 @@
+{
+  "timezone": "Europe/Madrid",
+  "region_code": "ES",
+  "language": "es",
+  "video": {"width": 1080, "height": 1920, "fps": 30},
+  "channels": {
+    "curiosidad_total": {
+      "name": "CURIOSIDAD TOTAL",
+      "niche": "curiosidades",
+      "youtube_channel_id": "",
+      "publish_time": "13:00",
+      "category_id": "27",
+      "research_queries": ["curiosidades", "datos curiosos", "sabías que", "curiosidades del mundo"],
+      "tone": "asombro, ritmo rápido, datos sorprendentes y verificables",
+      "target_words": 150,
+      "tts": {"engine": "auto", "edge_voice": "es-ES-AlvaroNeural", "elevenlabs_voice_id": "", "espeak_voice": "es"},
+      "palette": ["#0f2027", "#2c5364", "#ffd400"],
+      "default_tags": ["curiosidades", "datos curiosos", "sabías que"]
+    },
+    "ecos_del_pasado": {
+      "name": "ECOS DEL PASADO",
+      "niche": "historia",
+      "youtube_channel_id": "",
+      "publish_time": "17:00",
+      "category_id": "27",
+      "research_queries": ["historia", "historia antigua", "historia que no te contaron", "datos históricos"],
+      "tone": "narrativo, solemne, documental, rigor histórico",
+      "target_words": 160,
+      "tts": {"engine": "auto", "edge_voice": "es-ES-ElviraNeural", "elevenlabs_voice_id": "", "espeak_voice": "es"},
+      "palette": ["#2b1d0e", "#6b4f2a", "#e8c07d"],
+      "default_tags": ["historia", "historia antigua", "documental"]
+    },
+    "caso_abierto": {
+      "name": "CASO ABIERTO",
+      "niche": "misterio",
+      "youtube_channel_id": "",
+      "publish_time": "21:00",
+      "category_id": "24",
+      "research_queries": ["casos sin resolver", "misterios sin resolver", "desapariciones misteriosas", "misterio"],
+      "tone": "intriga, suspense, sobrio y respetuoso con las víctimas, solo hechos documentados",
+      "target_words": 160,
+      "tts": {"engine": "auto", "edge_voice": "es-MX-JorgeNeural", "elevenlabs_voice_id": "", "espeak_voice": "es"},
+      "palette": ["#050505", "#1a1a2e", "#c0392b"],
+      "default_tags": ["misterio", "casos sin resolver", "true crime"]
+    }
+  }
+}

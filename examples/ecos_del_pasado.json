@@ -1,0 +1,14 @@
+{
+  "topic": "La Gran Guerra del Emú (1932)",
+  "title": "El día que un ejército perdió contra unas aves",
+  "description": "En 1932, Australia envió soldados con ametralladoras contra miles de emús. El resultado sorprendió a todos. #historia #australia #documental",
+  "tags": ["guerra del emú", "australia", "historia curiosa"],
+  "scenes": [
+    {"section": "hook", "text": "En 1932, un ejército moderno, con ametralladoras, declaró la guerra a un enemigo inesperado. Y no ganó.", "image_query": "australian outback landscape"},
+    {"section": "context", "text": "Australia Occidental. Tras la Primera Guerra Mundial, muchos veteranos se habían convertido en agricultores de trigo.", "image_query": "wheat field sunset"},
+    {"section": "context", "text": "Pero unos veinte mil emús migraron hacia sus campos y arrasaron las cosechas. Los granjeros pidieron ayuda al gobierno.", "image_query": "emu bird"},
+    {"section": "twist", "text": "El ejército envió soldados con dos ametralladoras Lewis. Los emús se dispersaban en grupos pequeños, corrían a gran velocidad y resistían los disparos. Tras semanas de intentos, la operación se retiró.", "image_query": "dust road australia"},
+    {"section": "ending", "text": "La prensa la bautizó como la Gran Guerra del Emú, y la historia la recuerda como una derrota muy peculiar. Suscríbete para más ecos del pasado.", "image_query": "old newspaper vintage"}
+  ],
+  "facts_to_verify": ["Fecha: noviembre-diciembre de 1932", "Unos 20.000 emús", "Dos ametralladoras Lewis"]
+}
