@@ -272,7 +272,21 @@ function createRaulitoEngine(io) {
   const CONFIRM_RE = /^(confirm|confirmar|continue|continuar|approve|aprobar|proceed|proceder|accept|aceptar|yes|sí|si|ok|generate|generar|run|ejecutar|go ahead|adelante)$/i;
   const ERROR_RE = /(failed|falló|fallo|error|no se pudo|couldn'?t|could not|unable|policy|política|rechaz|blocked|bloquead|limit|límite|quota|cuota)/i;
 
-  async function waitResults({ before, beforeButtons, beforeAlerts, expected, autoConfirm, sceneN }) {
+  // Tarjetas de resultado fallido de Flow (nov. 2026): "Failed — You've reached your usage limit…".
+  const LIMIT_RE = /(usage limit|reached your (daily |monthly )?limit|l[ií]mite de uso|alcanzado (tu|el) l[ií]mite|out of credits|sin cr[eé]ditos|not enough credits|cr[eé]ditos insuficientes|quota exceeded|cuota)/i;
+  const FAILED_LINE = /^(failed|error|falló|fallo|no se pudo generar|generation failed)$/i;
+  function pageText() { return (document.body && document.body.innerText) || ''; }
+  const countMatches = (re, text) => (text.match(new RegExp(re.source, 'gim')) || []).length;
+  const failedCount = text => text.split('\n').filter(l => FAILED_LINE.test(l.trim())).length;
+  function failureSnapshot() { const t = pageText(); return { limit: countMatches(LIMIT_RE, t), failed: failedCount(t) }; }
+  // Mensaje de la tarjeta de error más reciente (las líneas que siguen a "Failed").
+  function failureMessage() {
+    const lines = pageText().split('\n').map(l => l.trim()).filter(Boolean);
+    const i = lines.findIndex(l => FAILED_LINE.test(l));
+    return i >= 0 ? lines.slice(i + 1, i + 3).join(' ').slice(0, 200) : '';
+  }
+
+  async function waitResults({ before, beforeButtons, beforeAlerts, beforeFail, expected, autoConfirm, sceneN }) {
     const t0 = Date.now();
     let found = []; let stableSince = 0; let lastCount = 0; let lastChange = Date.now();
     const clickedConfirm = new Set(); let askedHuman = false;
@@ -292,7 +306,16 @@ function createRaulitoEngine(io) {
       // Errores visibles de Flow
       const alerts = [...document.querySelectorAll('[role="alert"], [role="status"], [aria-live="assertive"]')].filter(a => visible(a) && !beforeAlerts.has(textOf(a)));
       const err = alerts.map(textOf).find(t => t && ERROR_RE.test(t));
-      if (err) throw new Error(`Flow informó: ${err.slice(0, 200)}`);
+      if (err) {
+        if (LIMIT_RE.test(err)) throw new HumanNeeded(`Flow dice que alcanzaste tu límite de uso: «${err.slice(0, 160)}». Espera a que Google lo renueve (o amplía tu plan) y pulsa Reanudar: esta escena se volverá a enviar.`);
+        throw new Error(`Flow informó: ${err.slice(0, 200)}`);
+      }
+      // Tarjetas nuevas de "Failed" en la galería de Flow
+      if (beforeFail) {
+        const now = failureSnapshot();
+        if (now.limit > beforeFail.limit) throw new HumanNeeded(`Flow dice que alcanzaste tu límite de uso${failureMessage() ? ': «' + failureMessage() + '»' : ''}. Espera a que Google lo renueve (o amplía tu plan) y pulsa Reanudar: esta escena se volverá a enviar.`);
+        if (now.failed > beforeFail.failed) throw new Error(`Flow no pudo generar esta escena${failureMessage() ? ': ' + failureMessage() : ''}`);
+      }
 
       // Medios nuevos
       const now = mediaElements().filter(el => !before.has(mediaKey(el)));
@@ -359,6 +382,7 @@ function createRaulitoEngine(io) {
     const before = new Set(mediaElements().map(mediaKey));
     const beforeButtons = new Set(clickables());
     const beforeAlerts = new Set([...document.querySelectorAll('[role="alert"], [role="status"], [aria-live="assertive"]')].map(textOf));
+    const beforeFail = failureSnapshot();
 
     // Botón de generar de Flow (espera a que se habilite)
     let submit = null;
@@ -381,7 +405,7 @@ function createRaulitoEngine(io) {
     if (!accepted) await log(`Escena ${scene.n}: Flow conserva el texto en el cuadro; se espera igualmente el resultado.`);
 
     const expected = parseInt(String(cfg.outputs).replace(/\D/g, ''), 10) || 1;
-    const media = await waitResults({ before, beforeButtons, beforeAlerts, expected, autoConfirm: cfg.autoConfirm, sceneN: scene.n });
+    const media = await waitResults({ before, beforeButtons, beforeAlerts, beforeFail, expected, autoConfirm: cfg.autoConfirm, sceneN: scene.n });
 
     const files = [];
     if (cfg.saveAsScene) {

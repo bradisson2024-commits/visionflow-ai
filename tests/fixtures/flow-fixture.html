@@ -67,6 +67,8 @@ document.getElementById('uploadBtn').onclick = () => {
 };
 const selected = g => { const b = document.querySelectorAll('#menu .grp')[g].querySelector('.sel'); return [...b.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim(); };
 let counter = 0;
+// Sin innerHTML: la prueba de tablet sirve esta página con Trusted Types.
+function failCard(lines) { const c = document.createElement('div'); c.className = 'failcard'; for (const l of lines) { const d = document.createElement('div'); d.textContent = l; c.appendChild(d); } return c; }
 function makeImage(label) {
   return new Promise(res => {
     const c = document.createElement('canvas'); c.width = 512; c.height = 288;
@@ -98,6 +100,21 @@ document.getElementById('gen').onclick = () => {
   }
   if (/FALLA/.test(prompt)) {
     setTimeout(() => { const a = document.createElement('div'); a.setAttribute('role', 'alert'); a.textContent = 'Generation failed: prompt blocked by policy'; document.body.appendChild(a); setTimeout(() => a.remove(), 3000); }, 800);
+    return;
+  }
+  if (/LIMITE/.test(prompt) && !window.__limitDone) {   // tarjeta de Flow: límite de uso alcanzado
+    window.__limitDone = true;
+    setTimeout(() => {
+      const c = failCard(['⚠', 'Failed', "You've reached your usage limit. Please try again later, or upgrade for higher limits.", 'You have not been charged for this generation.']);
+      document.getElementById('results').prepend(c);
+    }, 700);
+    return;
+  }
+  if (/TARJETA_FALLO/.test(prompt)) {
+    setTimeout(() => {
+      const c = failCard(['Failed', 'Something went wrong. Please try again.']);
+      document.getElementById('results').prepend(c);
+    }, 700);
     return;
   }
   if (/AGENTE/.test(prompt)) {

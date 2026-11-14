@@ -115,6 +115,20 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await p.waitForFunction(() => /^2 \/ 3 escenas completadas · 1 con error/.test(document.getElementById('raulitoshow-ia-panel').shadowRoot.querySelector('.row.small span').textContent), null, { timeout: 60000 });
     step('CAPTCHA → pausa con intervención humana; error de la página → escena en Error y sigue');
 
+    // Límite de uso de Flow (tarjeta "Failed — You've reached your usage limit") → pausa, no gasta las escenas
+    await p.reload(); await runBookmarklet();
+    await panel('textarea').fill('escena LIMITE\nescena TARJETA_FALLO\nescena despues');
+    await panel('button.start').click();
+    await p.waitForFunction(() => /límite de uso/.test(document.getElementById('raulitoshow-ia-panel').shadowRoot.querySelector('.msg').textContent), null, { timeout: 30000 });
+    const sentAtLimit = await p.evaluate(() => window.__log.prompts.length);
+    await sleep(3000);
+    assert.strictEqual(await p.evaluate(() => window.__log.prompts.length), sentAtLimit, 'no sigue enviando tras el límite');
+    assert.match(await panel('ol li').first().textContent(), /En pausa/);
+    await panel('button.pause').click();   // "más tarde": reanudar reenvía la escena del límite
+    await p.waitForFunction(() => /^2 \/ 3 escenas completadas · 1 con error/.test(document.getElementById('raulitoshow-ia-panel').shadowRoot.querySelector('.row.small span').textContent), null, { timeout: 60000 });
+    assert.match(await panel('ol li').nth(1).textContent(), /Error.*Flow no pudo generar esta escena: Something went wrong/s);
+    step('Límite de uso de Flow → pausa con aviso y sin gastar escenas; Reanudar reenvía la escena; tarjeta "Failed" → Error y sigue');
+
     // Vista vertical (tablet en vertical / móvil)
     await p.setViewportSize({ width: 600, height: 960 });
     assert.ok(await p.evaluate(() => document.getElementById('raulitoshow-ia-panel').shadowRoot.querySelector('.wrap').getBoundingClientRect().width <= innerWidth));
