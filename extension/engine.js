@@ -121,35 +121,57 @@ function createRaulitoEngine(io) {
   }
 
   // ---------------- ajustes de Flow (formato y número de resultados) ----------------
-  const OPTION_ROLES = /^(option|menuitemradio|menuitem|radio|tab)$/;
-  const exactOptions = label => clickables().filter(el => textOf(el) === label || (el.getAttribute('aria-label') || '').trim() === label);
+  // Texto visible de un control sin los nombres de iconos (Material Symbols usa palabras como "crop_16_9").
+  const ICON_WORD = /^[a-z0-9]+(_[a-z0-9]+)+$/;
+  function cleanText(el) {
+    const parts = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const t = n.textContent.replace(/\s+/g, ' ').trim();
+      if (!t) continue;
+      const p = n.parentElement;
+      const iconEl = p && p !== el && (p.tagName === 'I' || /(icon|symbol|material)/i.test(p.className && p.className.baseVal !== undefined ? p.className.baseVal : p.className || ''));
+      if (iconEl || ICON_WORD.test(t)) continue;
+      parts.push(t);
+    }
+    return parts.join(' ').replace(/\s+/g, ' ').trim();
+  }
+  const optionButtons = label => clickables().filter(el => cleanText(el) === label || (el.getAttribute('aria-label') || '').trim() === label);
   function pressEscape() {
     const t = document.activeElement || document.body;
     t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
   }
-  // Selecciona una opción de los ajustes de Flow por su texto exacto (p. ej. "16:9" o "x2").
-  // Devuelve true si queda seleccionada (o ya lo estaba) y false si no se encuentra en la interfaz.
-  async function applyOption(label, kindRe) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const opts = exactOptions(label);
-      if (opts.some(isSelected)) { pressEscape(); return true; }
-      const menuOpt = opts.find(el => OPTION_ROLES.test(el.getAttribute('role') || ''));
-      if (menuOpt) { realClick(menuOpt); await sleep(500); pressEscape(); await sleep(200); return true; }
-      if (attempt === 0) {
-        // Chip de resumen del cuadro de prompts que ya muestra el valor elegido (p. ej. "Nano Banana · 16:9 · x2").
-        const chip = clickables().find(el => kindRe.test(textOf(el)) && textOf(el).split(/[\s·|,/]+/).includes(label) && textOf(el) !== label);
-        if (chip) return true;
-      }
-      // Abrir el menú de ajustes: un botón con la opción, un chip con el valor actual o el botón de ajustes.
-      const opener = opts[0] || clickables().find(el => kindRe.test(textOf(el))) ||
-        clickables().find(el => /(settings|ajustes|configuraci|tune)/i.test(labelOf(el)));
+  // Botón del cuadro de prompts que abre los ajustes. En Flow (nov. 2026) es el chip "Nano Banana Pro ▭ x1".
+  function settingsOpener() {
+    return clickables().find(el => /\bx[1-4]\b/.test(cleanText(el)) && cleanText(el) !== cleanText(el).match(/\bx[1-4]\b/)[0]) ||
+      clickables().find(el => /(16:9|9:16|1:1|4:3|3:4)/.test(cleanText(el)) && !/^(16:9|9:16|1:1|4:3|3:4)$/.test(cleanText(el))) ||
+      clickables().find(el => /(settings|ajustes|configuraci|tune)/i.test(labelOf(el)));
+  }
+  // Selecciona una opción de los ajustes de Flow por su texto (p. ej. "16:9" o "x2").
+  // Devuelve true si la opción se pulsó (o ya estaba elegida) y false si no aparece en la interfaz.
+  async function applyOption(label) {
+    let opts = optionButtons(label);
+    let opened = false;
+    if (!opts.length) {
+      const opener = settingsOpener();
       if (!opener) return false;
-      realClick(opener);
-      await sleep(700);
-      if (opts[0] && opener === opts[0] && !exactOptions(label).some(el => el !== opener)) return true; // botón directo (sin menú)
+      realClick(opener); opened = true;
+      for (let i = 0; i < 10 && !opts.length; i++) { await sleep(300); opts = optionButtons(label); }
     }
-    pressEscape();
-    return false;
+    if (!opts.length) { if (opened) pressEscape(); return false; }
+    const target = opts.find(isSelected) || opts[0];
+    if (!isSelected(target)) { realClick(target); await sleep(500); }
+    return true;
+  }
+  async function applySettings(aspect, outputs) {
+    const okA = await applyOption(aspect);
+    const okX = await applyOption(outputs);
+    // Cerrar el menú de ajustes si sigue abierto.
+    if (optionButtons(outputs).length || optionButtons(aspect).length) {
+      pressEscape(); await sleep(300);
+      if (optionButtons(outputs).length && settingsOpener()) { realClick(settingsOpener()); await sleep(300); }
+    }
+    return { okA, okX };
   }
 
   // ---------------- personaje de referencia ----------------
@@ -247,8 +269,7 @@ function createRaulitoEngine(io) {
     const composer = composerOf(box);
 
     if (!run.settingsApplied) {
-      const okA = await applyOption(cfg.aspect, /(16:9|9:16|1:1|4:3|3:4)/);
-      const okX = await applyOption(cfg.outputs, /\bx[1-4]\b/i);
+      const { okA, okX } = await applySettings(cfg.aspect, cfg.outputs);
       if (!okA || !okX) {
         await patchRun(r => { r.settingsApplied = true; });
         throw new HumanNeeded(`No pude seleccionar ${!okA ? cfg.aspect : ''}${!okA && !okX ? ' y ' : ''}${!okX ? cfg.outputs : ''} en los ajustes de Flow. Selecciónalo manualmente en Flow y pulsa Reanudar.`);
