@@ -84,8 +84,21 @@ button.big { padding: 14px; font-size: 16px; }
 .gal-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .gal-title { font: 700 15px/1.3 var(--font-head); margin-right: auto; font-variant-numeric: tabular-nums; }
 .all input { width: 72px; }
+.sec.ai { border-color: #5a2a2a; }
+.chars { display: flex; flex-wrap: wrap; gap: 6px; }
+.chars span { font-size: 12px; border: 1px solid var(--line); border-radius: 99px; padding: 2px 9px; background: var(--well); }
+.chars i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; border: 1px solid #fff5; vertical-align: -1px; }
+.sceneinfo { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; font-size: 13px; display: grid; gap: 4px; }
+.sceneinfo .row { gap: 10px; }
+.sceneinfo b { color: var(--muted); font-weight: 600; }
+.sceneinfo input { width: 74px; }
+.sceneinfo .low { color: var(--warn); }
+.card .act { color: var(--warn); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .vid { position: absolute; top: 4px; left: 4px; background: #000a; color: #fff; font-size: 10px; border-radius: 4px; padding: 1px 5px; }
+.card { position: relative; }
 #distMsg { margin: 5px 0; min-height: 18px; font-size: 13px; }
 #distMsg.warn { color: var(--warn); } #distMsg.ok { color: var(--ok); }
+#aiStatus.warn { color: var(--warn); } #aiStatus.ok { color: var(--ok); }
 .cards { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 6px; }
 .card { flex: 0 0 138px; background: var(--panel-2); border: 2px solid var(--line); border-radius: 9px; overflow: hidden; cursor: pointer; padding: 0; text-align: left; min-height: 0; }
 .card.sel { border-color: var(--red); }
@@ -120,15 +133,15 @@ button.big { padding: 14px; font-size: 16px; }
 
   <aside class="left">
     <section class="sec">
-      <h2><span class="num">1</span> Tus imágenes</h2>
+      <h2><span class="num">1</span> Tus imágenes y videos Stickman</h2>
       <div class="drop" id="imgDrop">
         <div><b>Arrastra aquí una carpeta</b> con tus imágenes</div>
         <button id="pickFolderBtn" type="button">Seleccionar carpeta</button>
       </div>
       <input type="file" id="folderInput" webkitdirectory multiple hidden>
-      <input type="file" id="filesInput" accept="image/*" multiple hidden>
-      <button id="pickFilesBtn" type="button">Elegir imágenes sueltas</button>
-      <div class="small muted">En tablet: pulsa “Elegir imágenes sueltas” y marca varias a la vez.</div>
+      <input type="file" id="filesInput" accept="image/*,video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v" multiple hidden>
+      <button id="pickFilesBtn" type="button">Elegir imágenes o videos sueltos</button>
+      <div class="small muted">Imágenes (PNG, JPG, WEBP) y clips animados (MP4, WEBM). En tablet: pulsa “Elegir…” y marca varios a la vez. Si los nombres están desordenados, el Motor Stickman los ordena por la historia.</div>
       <div class="row between"><span id="imgCount" class="count">0 imágenes</span></div>
       <div id="imgStatus" class="small muted"></div>
       <div class="thumbs" id="thumbs"></div>
@@ -162,10 +175,26 @@ button.big { padding: 14px; font-size: 16px; }
       <details class="tprev-box"><summary class="small muted">Ver escenas numeradas</summary><ol id="textPreview" class="tprev"></ol></details>
     </section>
 
+    <section class="sec ai">
+      <h2><span class="num">★</span> Motor Stickman (IA)</h2>
+      <div class="small muted">Claude mira cada imagen o clip (personajes por color, cabeza y cuerpo, pose, acción, gesto, objetos, escenario, interacciones), reconoce al mismo personaje en distintas poses, relaciona cada imagen con tu narración y ordena las escenas como la historia. Después sincroniza los cambios de escena con las pausas reales de tu voz.</div>
+      <button class="primary" id="aiBtn" type="button">🧠 ANALIZAR Y ORDENAR LA HISTORIA</button>
+      <div class="bar" id="aiBarBox" hidden><div id="aiBar"></div></div>
+      <div id="aiStatus" class="small"></div>
+      <div id="aiChars" class="chars"></div>
+    </section>
+
     <section class="sec">
       <h2><span class="num">4</span> Crea tu video</h2>
-      <label class="check"><input type="checkbox" id="zoomChk" checked> Movimiento suave (zoom lento)</label>
-      <div class="small muted">Zoom digital de 1.00× a 1.08× sobre cada imagen fija. No es animación generada por IA.</div>
+      <label class="field" for="motionSel">Movimiento de cámara en imágenes fijas
+        <select id="motionSel">
+          <option value="auto" selected>Automático según la acción</option>
+          <option value="zoom">Zoom lento</option>
+          <option value="pan">Desplazamiento lateral</option>
+          <option value="none">Sin movimiento</option>
+        </select>
+      </label>
+      <div class="small muted">Movimiento digital de cámara (zoom o desplazamiento) sobre la imagen fija: los personajes NO se mueven, no es animación. En “Automático”, las escenas de caminar, correr, perseguir o escapar se desplazan y las demás hacen zoom lento. Los clips de video conservan su movimiento original, sin zoom.</div>
       <label class="field" for="qualitySel">Calidad
         <select id="qualitySel">
           <option value="1080p" selected>Full HD 1080p (recomendado)</option>
@@ -199,6 +228,7 @@ button.big { padding: 14px; font-size: 16px; }
       <span id="tTotal" class="time">0:00.0</span>
     </div>
     <div class="small muted" id="sceneNow"></div>
+    <div class="sceneinfo" id="sceneInfo" hidden></div>
   </main>
 
   <footer class="gallery">
@@ -280,7 +310,70 @@ const T = (() => {
   const total = d => round(d.reduce((a, b) => a + b, 0));
   const sceneAt = (d, t) => { let acc = 0; for (let i = 0; i < d.length; i++) { if (t < acc + d[i]) return i; acc += d[i]; } return Math.max(0, d.length - 1); };
   const fmt = (t, dec = 1) => { t = Math.max(0, t || 0); const m = Math.floor(t / 60); return `${m}:${(t - m * 60).toFixed(dec).padStart(dec ? 3 + dec : 2, '0')}`; };
-  return { parseSceneText, distribute, starts, total, sceneAt, fmt };
+  // ---- Sincronización con la voz: pausas reales del audio ----
+  // Energía RMS en ventanas de 20 ms; silencio = por debajo de un umbral entre el ruido de fondo y el nivel de voz.
+  function detectPauses(samples, sr) {
+    const win = Math.max(1, Math.round(sr * 0.02)); const n = Math.floor(samples.length / win);
+    const db = new Float32Array(n);
+    for (let f = 0; f < n; f++) { let sum = 0; for (let k = f * win; k < (f + 1) * win; k++) sum += samples[k] * samples[k]; db[f] = 10 * Math.log10(sum / win + 1e-12); }
+    const sorted = Array.from(db).sort((a, b) => a - b);
+    const floor = sorted[Math.floor(n * 0.1)] || -120, speech = sorted[Math.floor(n * 0.9)] || 0;
+    const thr = floor + 0.35 * (speech - floor);
+    const pauses = []; let runStart = -1;
+    let first = -1, last = -1;
+    for (let f = 0; f <= n; f++) {
+      const silent = f < n && db[f] < thr;
+      if (f < n && !silent) { if (first < 0) first = f; last = f; }
+      if (silent && runStart < 0) runStart = f;
+      if (!silent && runStart >= 0) {
+        const a = runStart * 0.02, b = f * 0.02;
+        if (b - a >= 0.18) pauses.push({ start: round(a), end: round(b), mid: round((a + b) / 2), len: round(b - a) });
+        runStart = -1;
+      }
+    }
+    const speechStart = first < 0 ? 0 : first * 0.02, speechEnd = last < 0 ? n * 0.02 : (last + 1) * 0.02;
+    return { pauses: pauses.filter(p => p.start > speechStart && p.end < speechEnd), speechStart: round(speechStart), speechEnd: round(speechEnd), threshold: thr };
+  }
+  // Elige TODOS los cambios de escena a la vez (programación dinámica): cada cambio va a una pausa real de la voz,
+  // premiando las pausas largas y penalizando la distancia a donde lo situaría la longitud del texto. Si no hay
+  // una pausa adecuada, el cambio se queda en la posición estimada.
+  function voiceAlign(weights, info, totalDur) {
+    const n = weights.length; const sum = weights.reduce((a, b) => a + b, 0) || n;
+    const s0 = info.speechStart, s1 = info.speechEnd; const avg = Math.max(0.5, (s1 - s0) / n);
+    const expected = []; let acc = 0;
+    for (let k = 1; k < n; k++) { acc += weights[k - 1]; expected.push(s0 + (s1 - s0) * acc / sum); }
+    if (n === 1) return { durations: [round(totalDur)], snapped: 0, starts: [0] };
+    const GAP = 0.4, W_LEN = 4, W_DEV = 1;
+    // candidatos: pausas reales + la posición estimada de cada cambio (sin premio)
+    const cands = info.pauses.map(p => ({ mid: p.mid, len: p.len, real: true }))
+      .concat(expected.map(e => ({ mid: e, len: 0, real: false })))
+      .filter(c => c.mid >= GAP && c.mid <= totalDur - GAP).sort((a, b) => a.mid - b.mid);
+    const m = cands.length, K = n - 1, NEG = -1e18;
+    const score = (k, c) => (c.real ? W_LEN * c.len : 0) - W_DEV * Math.abs(c.mid - expected[k]) / avg;
+    let dp = cands.map(c => score(0, c)); const back = [cands.map(() => -1)];
+    for (let k = 1; k < K; k++) {
+      const nd = new Array(m).fill(NEG), nb = new Array(m).fill(-1);
+      let bestVal = NEG, bestIdx = -1, ptr = 0;
+      for (let j = 0; j < m; j++) {
+        while (ptr < j && cands[ptr].mid <= cands[j].mid - GAP) { if (dp[ptr] > bestVal) { bestVal = dp[ptr]; bestIdx = ptr; } ptr++; }
+        if (bestIdx >= 0) { nd[j] = bestVal + score(k, cands[j]); nb[j] = bestIdx; }
+      }
+      dp = nd; back.push(nb);
+    }
+    let end = -1, bestEnd = NEG;
+    for (let j = 0; j < m; j++) if (dp[j] > bestEnd) { bestEnd = dp[j]; end = j; }
+    let bounds;
+    if (end < 0) bounds = expected.slice();
+    else { bounds = new Array(K); let j = end; for (let k = K - 1; k >= 0; k--) { bounds[k] = cands[j]; j = back[k][j]; } }
+    const snapped = end < 0 ? 0 : bounds.filter(c => c.real).length;
+    const cuts = [0].concat(bounds.map(c => (typeof c === 'number' ? c : c.mid)), [totalDur]);
+    const durations = [];
+    for (let k = 0; k < n; k++) durations.push(round(Math.max(0.2, cuts[k + 1] - cuts[k])));
+    const diff = totalDur - durations.reduce((a, b) => a + b, 0);
+    durations[n - 1] = round(Math.max(0.2, durations[n - 1] + diff));
+    return { durations, snapped, starts: cuts.slice(0, n).map(round) };
+  }
+  return { parseSceneText, distribute, starts, total, sceneAt, fmt, detectPauses, voiceAlign };
 })();
 window.Timing = T;
 
@@ -288,9 +381,11 @@ window.Timing = T;
 const $ = id => document.getElementById(id);
 const FPS = 30, ZOOM = 0.08;
 const IMG_RE = /\.(png|jpe?g|webp|gif|bmp|avif)$/i;
+const VIDEO_RE = /\.(mp4|webm|mov|m4v)$/i;
 const AUDIO_RE = /\.(mp3|wav|m4a)$/i;
 const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-const state = { images: [], durations: [], audio: null, zoom: true, quality: '1080p', dist: null };
+const state = { images: [], durations: [], slots: [], characters: [], audio: null, motion: 'auto', quality: '1080p', dist: null };
+let itemSeq = 0;
 // images: [{name, file, url, img(HTMLImageElement), w, h}] ; audio: {name, file, url, buffer(AudioBuffer), duration}
 let parsed = { mode: 'none', lines: [], cues: [] };
 let selected = 0, curTime = 0, playing = false, lastTick = 0;
@@ -300,29 +395,61 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 function loadImage(file) {
   return new Promise(resolve => {
     const url = URL.createObjectURL(file); const img = new Image();
-    img.onload = () => resolve({ name: file.name, file, url, img, w: img.naturalWidth, h: img.naturalHeight });
+    img.onload = () => resolve({ id: 'img_' + (++itemSeq), kind: 'image', name: file.name, file, url, thumb: url, img, w: img.naturalWidth, h: img.naturalHeight });
     img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
     img.src = url;
   });
 }
+// Clip de video Stickman: se conserva su movimiento original (nunca se le aplica zoom).
+function loadVideo(file) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file); const v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.preload = 'auto'; v.crossOrigin = 'anonymous';
+    const fail = () => { URL.revokeObjectURL(url); resolve(null); };
+    const to = setTimeout(fail, 15000);
+    v.onerror = () => { clearTimeout(to); fail(); };
+    v.onloadeddata = async () => {
+      clearTimeout(to);
+      if (!v.videoWidth || !(v.duration > 0) || !isFinite(v.duration)) return fail();
+      await seekTo(v, Math.min(v.duration * 0.3, 1));
+      const c = document.createElement('canvas'); c.width = 320; c.height = Math.round(320 * v.videoHeight / v.videoWidth);
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      const thumb = c.toDataURL('image/jpeg', 0.8);
+      await seekTo(v, 0);
+      resolve({ id: 'img_' + (++itemSeq), kind: 'video', name: file.name, file, url, thumb, video: v, w: v.videoWidth, h: v.videoHeight, duration: v.duration });
+    };
+    v.src = url;
+  });
+}
+function seekTo(v, t) {
+  return new Promise(res => {
+    if (Math.abs(v.currentTime - t) < 0.001 && v.readyState >= 2) return res();
+    let done = false; const fin = () => { if (done) return; done = true; v.removeEventListener('seeked', fin); res(); };
+    v.addEventListener('seeked', fin); setTimeout(fin, 3000);
+    v.currentTime = t;
+  });
+}
 async function addImages(items, replace) {
-  const files = items.filter(it => IMG_RE.test(it.file.name) || /^image\//.test(it.file.type)).sort((a, b) => natural(a.rel, b.rel));
+  const files = items.filter(it => IMG_RE.test(it.file.name) || VIDEO_RE.test(it.file.name) || /^(image|video)\//.test(it.file.type)).sort((a, b) => natural(a.rel, b.rel));
   const skipped = items.length - files.length;
   if (!files.length) { $('imgStatus').textContent = 'No se encontraron imágenes compatibles (PNG, JPG, WEBP, GIF, BMP, AVIF).'; return; }
   pause();
   const added = [], bad = [];
   for (let i = 0; i < files.length; i++) {
     $('imgStatus').textContent = `Leyendo ${i + 1}/${files.length}…`;
-    const im = await loadImage(files[i].file);
+    const isVid = VIDEO_RE.test(files[i].file.name) || /^video\//.test(files[i].file.type);
+    const im = isVid ? await loadVideo(files[i].file) : await loadImage(files[i].file);
     if (im && im.w) added.push(im); else bad.push(files[i].rel);
   }
   const d = Number($('allDur').value) || 4;
-  if (replace) { state.images.forEach(i => URL.revokeObjectURL(i.url)); state.images = added; state.durations = added.map(() => d); curTime = 0; }
-  else { state.images.push(...added); state.durations.push(...added.map(() => d)); }
-  state.dist = null;
-  let msg = `${added.length} imágenes cargadas. Los originales no se modifican.`;
+  const durOf = im => im.kind === 'video' ? Math.round(im.duration * 1000) / 1000 : d;
+  if (replace) { state.images.forEach(i => URL.revokeObjectURL(i.url)); state.images = added; state.durations = added.map(durOf); curTime = 0; }
+  else { state.images.push(...added); state.durations.push(...added.map(durOf)); }
+  state.dist = null; state.slots = [];
+  const nv = added.filter(a => a.kind === 'video').length;
+  let msg = `${added.length - nv} imágenes${nv ? ` y ${nv} clips de video` : ''} cargados. Los originales no se modifican.`;
   if (bad.length) msg += ` ${bad.length} no se pudieron leer: ${bad.slice(0, 3).join(', ')}${bad.length > 3 ? '…' : ''}`;
-  if (skipped) msg += ` ${skipped} archivos ignorados por no ser imágenes.`;
+  if (skipped) msg += ` ${skipped} archivos ignorados por no ser imágenes ni videos.`;
   $('imgStatus').textContent = msg;
   renderAll();
 }
@@ -415,7 +542,13 @@ function renderTextInfo() {
   else s = `${parsed.lines.length} líneas → asociadas en orden a las imágenes 1…${Math.min(n, parsed.lines.length) || parsed.lines.length}.`;
   if (parsed.mode !== 'none' && n && parsed.lines.length !== n) s += ` Atención: hay ${n} imágenes.`;
   $('textInfo').textContent = s;
-  renderTextPreview(i => state.images[i] && state.images[i].name);
+  renderTextPreview(i => {
+    if (state.slots.length === state.images.length && state.slots.length) {
+      const ks = state.slots.map((sl, k) => (i + 1 >= sl.desde && i + 1 <= sl.hasta ? k : -1)).filter(k => k >= 0);
+      return ks.length ? ks.map(k => `${state.images[k].name} (escena ${k + 1})`).join(', ') : '';
+    }
+    return state.images[i] && state.images[i].name;
+  });
 }
 $('sceneText').addEventListener('input', onText);
 $('pickTextBtn').onclick = () => $('textInput').click();
@@ -431,9 +564,178 @@ $('applyAllBtn').onclick = () => {
   state.dist = { method: 'manual', message: `Todas las escenas duran ${d} s.` };
   curTime = Math.min(curTime, T.total(state.durations)); renderAll();
 };
-$('distributeBtn').onclick = () => {
-  try { const r = T.distribute(state.images.length, state.audio && state.audio.duration, parsed); state.durations = r.durations; state.dist = r; renderAll(); }
-  catch (e) { setDistMsg(e.message, 'warn'); }
+$('distributeBtn').onclick = () => { try { syncToVoice(); } catch (e) { setDistMsg(e.message, 'warn'); } };
+
+// Peso de cada escena = caracteres de su frase narrada (líneas compartidas entre escenas se reparten).
+function sceneWeights() {
+  const n = state.images.length, L = parsed.lines.length;
+  if (state.slots.length === n && L) {
+    const share = new Array(L).fill(0);
+    state.slots.forEach(sl => { for (let l = sl.desde; l <= sl.hasta; l++) share[l - 1]++; });
+    return state.slots.map(sl => { let w = 0; for (let l = sl.desde; l <= sl.hasta; l++) w += Math.max(1, parsed.lines[l - 1].length) / share[l - 1]; return w; });
+  }
+  if (parsed.mode === 'lines' && L) {
+    const lens = Array.from({ length: n }, (_, i) => parsed.lines[i] ? parsed.lines[i].length : null);
+    const known = lens.filter(x => x != null); const avg = known.reduce((a, b) => a + b, 0) / (known.length || 1);
+    return lens.map(x => (x == null ? avg : Math.max(1, x)));
+  }
+  return null;
+}
+function voiceInfo() {
+  if (!state.audio.voice) {
+    const b = state.audio.buffer; const mono = new Float32Array(b.length);
+    for (let c = 0; c < b.numberOfChannels; c++) { const d = b.getChannelData(c); for (let i = 0; i < d.length; i++) mono[i] += d[i] / b.numberOfChannels; }
+    state.audio.voice = T.detectPauses(mono, b.sampleRate);
+  }
+  return state.audio.voice;
+}
+// Repartir con el audio: marcas reales (SRT/VTT/[mm:ss]) si las hay; si no, cambios de escena en las pausas reales de la voz.
+function syncToVoice() {
+  const n = state.images.length;
+  if (!n) throw new Error('No hay imágenes para repartir.');
+  if (!state.audio) throw new Error('Carga primero el audio para poder repartir las escenas.');
+  const dur = state.audio.duration;
+  if (parsed.mode === 'timed') {
+    if (state.slots.length === n) {
+      const st = state.slots.map(sl => parsed.cues[sl.desde - 1].start); st[0] = 0;
+      // escenas que comparten la misma línea se reparten su intervalo
+      for (let k = 1; k < n; k++) if (st[k] <= st[k - 1]) { let j = k; while (j < n && state.slots[j].desde === state.slots[k].desde) j++; const end = j < n ? st[j] : dur; const step = (end - st[k - 1]) / (j - k + 1); for (let q = k; q < j; q++) st[q] = st[q - 1] + step; k = j - 1; }
+      state.durations = st.map((a, k) => Math.max(0.2, Math.round(((k + 1 < n ? st[k + 1] : dur) - a) * 1000) / 1000));
+      state.dist = { method: 'marcas', message: `Escenas sincronizadas con las marcas de tiempo reales de la narración (orden del Motor Stickman).` };
+    } else { const r = T.distribute(n, dur, parsed); state.durations = r.durations; state.dist = r; }
+    renderAll(); return;
+  }
+  const weights = sceneWeights() || new Array(n).fill(1);
+  const info = voiceInfo();
+  const r = T.voiceAlign(weights, info, dur);
+  state.durations = r.durations;
+  const base = sceneWeights() ? 'la longitud de la frase de cada escena' : 'partes iguales';
+  state.dist = { method: 'voz', message: `Sincronizado con tu voz: ${r.snapped} de ${n - 1} cambios de escena caen en pausas reales de la narración (${info.pauses.length} pausas detectadas); el resto se estimó por ${base}. No es una transcripción palabra por palabra: para tiempos exactos carga un .srt.`,
+    warning: r.snapped < (n - 1) / 2 ? 'Pocas pausas coinciden: revisa la vista previa y ajusta duraciones si hace falta.' : '' };
+  renderAll();
+}
+
+// ================= Motor Stickman (IA) =================
+let sampleFn;
+async function getSample() {
+  if (sampleFn !== undefined) return sampleFn;
+  sampleFn = window.claude && window.claude.use ? await window.claude.use('sample') : null;
+  return sampleFn;
+}
+function aiMsg(t, cls) { $('aiStatus').textContent = t; $('aiStatus').className = 'small ' + (cls || ''); }
+function aiBar(p) { $('aiBarBox').hidden = p == null; $('aiBar').style.width = (p || 0) + '%'; }
+function toBlob(canvas) { return new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85)); }
+async function analysisBlob(im) {
+  const src = im.kind === 'video' ? await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = im.thumb; }) : im.img;
+  const w0 = src.naturalWidth || src.width, h0 = src.naturalHeight || src.height; const k = Math.min(1, 640 / Math.max(w0, h0));
+  const c = document.createElement('canvas'); c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  return toBlob(c);
+}
+const DESCRIBE_PROMPT = (items) => `Eres un analista de animación Stickman (figuras de palitos). Te envío ${items.length} ilustraciones, en este orden: ${items.map((im, k) => `${k + 1}) id "${im.id}"${im.kind === 'video' ? ' (fotograma de un clip de video)' : ''}`).join('; ')}.
+Para CADA imagen devuelve un objeto con exactamente estas claves:
+"id" (el id dado), "personajes" (lista de {"color": color principal de la figura, p. ej. "negro", "rojo", "azul"; "rasgos": rasgos distintivos como sombrero, pelo, ropa, tamaño o accesorios; "cabeza_cuerpo": cómo se ven cabeza y cuerpo; "brazos_piernas": posición de brazos y piernas; "pose": pose en pocas palabras; "accion": verbo principal (caminar, correr, saltar, caerse, pelear, abrazar, señalar, hablar, mirar, sorprenderse, perseguir, escapar, sentarse, llorar, reír, dormir, pensar u otro); "gesto": gesto visible; "emocion": emoción visible}),
+"objetos" (lista de objetos relevantes), "escenario" (lugar o fondo), "interaccion" (qué hacen los personajes entre sí, o "" si no hay), "accion_principal" (la acción que cuenta la imagen, en una frase corta) y "resumen" (una frase con lo que pasa).
+Describe solo lo que se ve; no inventes. Responde SOLO con un array JSON de ${items.length} objetos, en el mismo orden.`;
+function orderPrompt(lines, descs) {
+  const hasText = lines.length > 0;
+  return `Vas a montar un video de animación Stickman para que cuente visualmente la misma historia que la narración.
+${hasText ? `NARRACIÓN (líneas numeradas, en orden):\n${lines.map((l, i) => `${i + 1}. ${l}`).join('\n')}\n` : 'No hay narración escrita: ordena por la lógica visual de la historia.\n'}
+IMÁGENES DISPONIBLES (descripción de cada una):
+${JSON.stringify(descs)}
+
+Tareas:
+1. Identifica los personajes recurrentes por su color y rasgos. El mismo personaje puede aparecer en poses distintas. Dales ids P1, P2… No confundas personajes de distinto color ni intercambies protagonistas.
+2. Ordena TODAS las imágenes siguiendo la secuencia de acontecimientos de la historia${hasText ? `. Cada imagen se usa exactamente una vez y cubre un tramo continuo de líneas de la narración ("desde" y "hasta", números de línea). Los tramos van en orden, sin huecos, desde la línea 1 hasta la ${lines.length}. Si hay más imágenes que líneas, varias imágenes consecutivas pueden compartir la misma línea; si hay más líneas que imágenes, una imagen cubre varias líneas` : ''}.
+3. Cada imagen debe mostrar la acción que se narra en su tramo: el personaje correcto, una pose coherente con la acción, continuidad de acciones (por ejemplo caminar → descubrir → sorprenderse → correr) y de escenario. Evita saltos narrativos.
+Responde SOLO con JSON: {"personajes":[{"id":"P1","color":"…","descripcion":"…"}],"escenas":[{"imagen":"id de la imagen",${hasText ? '"desde":1,"hasta":1,' : ''}"accion":"acción que muestra","personajes":["P1"],"confianza":0.0,"motivo":"por qué esta imagen va aquí"}]} con "escenas" en el orden final del video.`;
+}
+function aiError(e) {
+  const c = e && e.code;
+  if (c === 'not_granted') return 'No diste permiso para usar Claude en esta página. Vuelve a pulsar el botón y acepta el permiso.';
+  if (c === 'rate_limited') return 'Claude está ocupado o alcanzaste tu límite de uso de Claude. Espera un poco y vuelve a pulsar: lo ya analizado se conserva.';
+  if (c === 'images_unavailable' || c === 'image_rejected') return 'Esta vista no puede enviar imágenes a Claude. Abre el Editor en claude.ai.';
+  if (c === 'invalid_json') return 'Claude respondió en un formato inesperado. Vuelve a pulsar el botón.';
+  return 'No se pudo completar el análisis: ' + ((e && e.message) || e);
+}
+// Aplica el orden propuesto validándolo: cada imagen una vez, tramos de líneas en orden y sin huecos.
+function applyOrder(res, L) {
+  const byId = new Map(state.images.map(im => [im.id, im]));
+  const used = new Set(); const seq = [];
+  for (const e of (res && Array.isArray(res.escenas) ? res.escenas : [])) {
+    const im = byId.get(String(e.imagen)); if (!im || used.has(im)) continue;
+    used.add(im); seq.push({ im, desde: parseInt(e.desde, 10) || 0, hasta: parseInt(e.hasta, 10) || 0,
+      match: { accion: String(e.accion || ''), personajes: Array.isArray(e.personajes) ? e.personajes.map(String) : [], confianza: Math.max(0, Math.min(1, Number(e.confianza) || 0)), motivo: String(e.motivo || '') } });
+  }
+  for (const im of state.images) if (!used.has(im)) seq.push({ im, desde: 0, hasta: 0, match: { accion: actionOf(im), personajes: [], confianza: 0, motivo: 'La IA no la ubicó en la historia: quedó al final. Muévela a su sitio.' } });
+  if (L) {
+    let prevH = 0;
+    seq.forEach(sc => {
+      let d = sc.desde >= 1 ? sc.desde : prevH + 1;
+      d = Math.min(Math.max(d, Math.max(1, prevH)), L);
+      if (d > prevH + 1) d = prevH + 1;
+      const h = Math.min(Math.max(d, sc.hasta || d), L);
+      sc.desde = d; sc.hasta = h; prevH = h;
+    });
+    seq[seq.length - 1].hasta = L;
+  }
+  const durById = new Map(state.images.map((im, i) => [im.id, state.durations[i]]));
+  state.images = seq.map(sc => { sc.im.match = sc.match; return sc.im; });
+  state.durations = state.images.map(im => durById.get(im.id));
+  state.slots = L ? seq.map(sc => ({ desde: sc.desde, hasta: sc.hasta })) : [];
+  state.characters = res && Array.isArray(res.personajes) ? res.personajes.map(p => ({ id: String(p.id), color: String(p.color || ''), descripcion: String(p.descripcion || '') })) : [];
+  return seq;
+}
+const CSS_COLORS = { negro: '#111', blanco: '#fff', rojo: '#e53935', azul: '#1e88e5', verde: '#43a047', amarillo: '#fdd835', naranja: '#fb8c00', morado: '#8e24aa', rosa: '#ec407a', gris: '#9e9e9e', marron: '#6d4c41', 'marrón': '#6d4c41', celeste: '#4fc3f7' };
+function renderChars() {
+  const box = $('aiChars'); box.innerHTML = '';
+  for (const c of state.characters) {
+    const sp = document.createElement('span'); const dot = document.createElement('i');
+    dot.style.background = CSS_COLORS[(c.color || '').toLowerCase().split(' ')[0]] || '#777';
+    sp.append(dot, `${c.id} · ${c.color}${c.descripcion ? ' — ' + c.descripcion : ''}`); box.appendChild(sp);
+  }
+}
+let aiRunning = false;
+$('aiBtn').onclick = async () => {
+  if (aiRunning) return;
+  const n = state.images.length;
+  if (!n) return aiMsg('Carga primero tus imágenes o videos Stickman.', 'warn');
+  const sample = await getSample();
+  if (!sample) return aiMsg('El análisis con IA no está disponible en esta vista. Abre el Editor desde claude.ai.', 'warn');
+  const caps = await sample.limits().catch(() => null);
+  if (!caps || !caps.images) return aiMsg('Esta vista no puede enviar imágenes a Claude. Abre el Editor desde claude.ai en Chrome.', 'warn');
+  aiRunning = true; $('aiBtn').disabled = true; pause();
+  try {
+    // 1-3. Analizar todas las imágenes: personajes, poses, acciones, objetos, escenario
+    const per = Math.max(1, Math.min(caps.images.maxCount || 1, 6));
+    const todo = state.images.filter(im => !im.ai);
+    for (let b = 0; b < todo.length; b += per) {
+      const batch = todo.slice(b, b + per);
+      aiBar(Math.round(80 * b / todo.length));
+      aiMsg(`Analizando imágenes ${b + 1}–${b + batch.length} de ${todo.length} (personajes, poses, acciones)…`);
+      const blobs = await Promise.all(batch.map(analysisBlob));
+      const out = await sample.json(DESCRIBE_PROMPT(batch), { images: blobs });
+      const arr = Array.isArray(out) ? out : (out && Array.isArray(out.imagenes) ? out.imagenes : []);
+      batch.forEach((im, k) => { const d = arr.find(x => x && String(x.id) === im.id) || arr[k]; if (d) im.ai = d; });
+      renderAll();
+    }
+    const missing = state.images.filter(im => !im.ai).length;
+    // 4-7. Relacionar con la narración y ordenar las escenas
+    aiBar(85); aiMsg('Relacionando las imágenes con la narración y ordenando la historia…');
+    const lines = parsed.lines;
+    const descs = state.images.map(im => ({ id: im.id, archivo: im.name, tipo: im.kind, ...(im.ai || { resumen: '(sin análisis)' }) }));
+    const res = await sample.json(orderPrompt(lines, descs));
+    const seq = applyOrder(res, lines.length);
+    // 8-9. Calcular tiempos y sincronizar con la voz
+    aiBar(95);
+    if (state.audio) syncToVoice(); else renderAll();
+    renderChars(); selectScene(0);
+    const low = seq.filter(sc => sc.match.confianza < 0.6).length;
+    aiBar(100);
+    aiMsg(`✓ Historia ordenada: ${n} escenas${lines.length ? ` relacionadas con ${lines.length} líneas de narración` : ' (sin narración escrita: orden por lógica visual)'}${state.characters.length ? `, ${state.characters.length} ${state.characters.length === 1 ? 'personaje reconocido' : 'personajes reconocidos'}` : ''}.${state.audio ? '' : ' Carga tu voz y pulsa “Repartir con el audio” para sincronizar.'}${low ? ` Revisa ${low} escena${low === 1 ? '' : 's'} marcada${low === 1 ? '' : 's'} con baja coincidencia.` : ''}${missing ? ` ${missing} imágenes no se pudieron analizar.` : ''}`, low || missing ? 'warn' : 'ok');
+  } catch (e) {
+    aiMsg(aiError(e), 'warn');
+  } finally { aiRunning = false; $('aiBtn').disabled = false; setTimeout(() => aiBar(null), 1500); }
 };
 
 // ================= Render =================
@@ -445,25 +747,44 @@ function outputSize(quality) {
   return { W: W - (W % 2), H: H - (H % 2) };
 }
 function sizeCanvas() { const { W, H } = outputSize('720p'); const c = $('canvas'); if (c.width !== W || c.height !== H) { c.width = W; c.height = H; } }
-// Ajusta la imagen sin recortar (bandas negras) y aplica el zoom centrado: lo mismo que el MP4.
-function drawScene(ctx, W, H, im, z) {
+// Ajusta la imagen sin recortar (bandas negras) y aplica el movimiento de cámara: lo mismo que el MP4.
+function drawScene(ctx, W, H, im, cam) {
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-  const s = Math.min(W / im.w, H / im.h) * z; const w = im.w * s, h = im.h * s;
+  const src = im.kind === 'video' ? im.video : im.img;
+  const s = Math.min(W / im.w, H / im.h) * cam.z; const w = im.w * s, h = im.h * s;
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(im.img, (W - w) / 2, (H - h) / 2, w, h);
+  ctx.drawImage(src, (W - w) / 2 + cam.dx * W, (H - h) / 2, w, h);
 }
-function zoomAt(i, t) { if (!state.zoom) return 1; const st = T.starts(state.durations)[i]; return 1 + ZOOM * Math.min(1, Math.max(0, t - st) / Math.max(0.001, state.durations[i])); }
+const MOVING_RE = /(camin|corr|persegu|escap|hu[iy]|saltand|viaj|avanz|march|run|walk|chase|flee|escape)/i;
+function actionOf(im) { return (im.match && im.match.accion) || (im.ai && im.ai.accion_principal) || ''; }
+// Movimiento digital de cámara para imágenes fijas (p de 0 a 1 dentro de la escena). Los videos no se tocan.
+function cameraFor(im, p) {
+  if (im.kind === 'video') return { z: 1, dx: 0 };
+  let m = state.motion;
+  if (m === 'auto') m = MOVING_RE.test(actionOf(im)) ? 'pan' : 'zoom';
+  if (m === 'zoom') return { z: 1 + ZOOM * p, dx: 0 };
+  if (m === 'pan') return { z: 1.12, dx: (p - 0.5) * 0.08 };
+  return { z: 1, dx: 0 };
+}
+function progressIn(i, t) { const st = T.starts(state.durations)[i]; return Math.min(1, Math.max(0, t - st) / Math.max(0.001, state.durations[i])); }
+// Tiempo dentro del clip de video: se reproduce tal cual; si la escena dura más que el clip se mantiene el último fotograma.
+function clipTime(i, t) { const im = state.images[i]; const st = T.starts(state.durations)[i]; return Math.max(0, Math.min(t - st, im.duration - 0.04)); }
 function draw() {
   const c = $('canvas'); const ctx = c.getContext('2d');
   if (!state.images.length) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, c.width, c.height); return; }
-  drawScene(ctx, c.width, c.height, state.images[selected], zoomAt(selected, curTime));
+  const im = state.images[selected];
+  if (im.kind === 'video' && !playing) {
+    const t = clipTime(selected, curTime);
+    if (Math.abs(im.video.currentTime - t) > 0.05) { im.video.currentTime = t; im.video.onseeked = () => { im.video.onseeked = null; draw(); }; }
+  }
+  drawScene(ctx, c.width, c.height, im, cameraFor(im, progressIn(selected, curTime)));
 }
 function renderAll() {
   const n = state.images.length;
   if (state.durations.length !== n) state.durations = state.images.map((_, i) => state.durations[i] || 4);
   const total = T.total(state.durations);
   $('imgCount').textContent = `${n} ${n === 1 ? 'imagen' : 'imágenes'}`;
-  $('thumbs').innerHTML = state.images.map(im => `<img src="${im.url}" alt="" title="${esc(im.name)}">`).join('');
+  $('thumbs').innerHTML = state.images.map(im => `<img src="${im.thumb}" alt="" title="${esc(im.name)}">`).join('');
   $('galTitle').textContent = `Escenas — ${n} ${n === 1 ? 'imagen' : 'imágenes'} — ${T.fmt(total)}`;
   $('timeline').max = String(total); $('tTotal').textContent = T.fmt(total);
   $('viewerEmpty').hidden = n > 0;
@@ -473,12 +794,46 @@ function renderAll() {
     setDistMsg(($('distMsg').textContent ? $('distMsg').textContent + ' ' : '') + `Las escenas suman ${total.toFixed(2)} s y el audio dura ${state.audio.duration.toFixed(2)} s.`, 'warn');
   }
   const st = T.starts(state.durations);
-  $('cards').innerHTML = state.images.map((im, i) => `<button type="button" class="card" data-i="${i}"><img src="${im.url}" alt=""><div class="meta"><b>Escena ${i + 1}</b><span>Inicio ${T.fmt(st[i])}</span><span>Duración ${state.durations[i].toFixed(2)} s</span></div></button>`).join('');
+  $('cards').innerHTML = state.images.map((im, i) => `<button type="button" class="card" data-i="${i}">${im.kind === 'video' ? '<span class="vid">▶ video</span>' : ''}<img src="${im.thumb}" alt=""><div class="meta"><b>Escena ${i + 1}</b><span>Inicio ${T.fmt(st[i])}</span><span>Duración ${state.durations[i].toFixed(2)} s</span>${actionOf(im) ? `<span class="act" title="${esc(actionOf(im))}">${esc(actionOf(im))}</span>` : ''}</div></button>`).join('');
   $('cards').querySelectorAll('.card').forEach(c => c.onclick = () => selectScene(Number(c.dataset.i)));
   renderTextInfo(); sizeCanvas(); updateTimeUi(); draw();
 }
 function selectScene(i) { curTime = T.starts(state.durations)[i] || 0; syncAudio(true); updateTimeUi(); draw(); }
-function renderCaption() { const t = parsed.lines[selected]; $('caption').textContent = state.images.length && t ? `“${t}”` : ''; }
+// Frase narrada de la escena: el tramo de líneas que le asignó el Motor Stickman, o la línea con el mismo número.
+function sceneText(i) {
+  const sl = state.slots[i];
+  if (sl && sl.desde) return parsed.lines.slice(sl.desde - 1, sl.hasta).join(' ');
+  return parsed.lines[i] || '';
+}
+function renderCaption() { const t = sceneText(selected); $('caption').textContent = state.images.length && t ? `“${t}”` : ''; renderSceneInfo(); }
+function renderSceneInfo() {
+  const box = $('sceneInfo');
+  if (!state.images.length) { box.hidden = true; return; }
+  const i = selected, im = state.images[i], st = T.starts(state.durations)[i], d = state.durations[i];
+  const m = im.match || {}, ai = im.ai || {};
+  const chars = (m.personajes && m.personajes.length ? m.personajes.map(id => { const c = state.characters.find(x => x.id === id); return c ? `${id} (${c.color})` : id; })
+    : (ai.personajes || []).map(p => p.color)).join(', ');
+  const sl = state.slots[i];
+  box.hidden = false;
+  box.innerHTML = `<div><b>Escena ${i + 1}:</b> ${esc(im.name)} · ${im.kind === 'video' ? `clip de video de ${im.duration.toFixed(2)} s (movimiento original)` : 'imagen fija'}</div>
+    ${actionOf(im) ? `<div><b>Acción:</b> ${esc(actionOf(im))}${chars ? ` · <b>Personajes:</b> ${esc(chars)}` : ''}</div>` : ''}
+    ${ai.resumen ? `<div><b>Imagen:</b> ${esc(ai.resumen)}</div>` : ''}
+    <div><b>Frase narrada${sl && sl.desde ? ` (${sl.hasta > sl.desde ? `líneas ${sl.desde}–${sl.hasta}` : `línea ${sl.desde}`})` : ''}:</b> ${esc(sceneText(i) || '—')}</div>
+    <div class="row"><span><b>Inicio</b> ${T.fmt(st, 2)}</span><span><b>Fin</b> ${T.fmt(st + d, 2)}</span>
+      <label><b>Duración</b> <input type="number" id="durEdit" min="0.2" step="0.1" value="${d.toFixed(2)}"> s</label>
+      <button type="button" id="moveL" ${i === 0 ? 'disabled' : ''}>◀ Mover</button><button type="button" id="moveR" ${i === state.images.length - 1 ? 'disabled' : ''}>Mover ▶</button></div>
+    ${im.kind === 'video' && d > im.duration + 0.05 ? `<div class="low">El clip dura ${im.duration.toFixed(2)} s: los últimos ${(d - im.duration).toFixed(2)} s se muestra su último fotograma (no se inventa movimiento).</div>` : ''}
+    ${m.confianza != null ? `<div class="${m.confianza < 0.6 ? 'low' : ''}"><b>IA:</b> coincidencia ${Math.round(m.confianza * 100)}%${m.motivo ? ' — ' + esc(m.motivo) : ''}</div>` : ''}`;
+  $('durEdit').onchange = e => { const v = Number(e.target.value); if (isFinite(v) && v >= 0.2) { state.durations[i] = Math.round(v * 1000) / 1000; state.dist = { method: 'manual', message: `Duración de la escena ${i + 1} ajustada a mano.` }; renderAll(); } };
+  $('moveL').onclick = () => moveScene(i, -1);
+  $('moveR').onclick = () => moveScene(i, 1);
+}
+// Corrección manual: la imagen cambia de lugar; el tramo de narración y la duración se quedan en su posición.
+function moveScene(i, dir) {
+  const j = i + dir; if (j < 0 || j >= state.images.length) return;
+  [state.images[i], state.images[j]] = [state.images[j], state.images[i]];
+  renderAll(); selectScene(j);
+}
 function updateTimeUi() {
   const total = T.total(state.durations);
   if (state.images.length) selected = T.sceneAt(state.durations, curTime); else selected = 0;
@@ -505,19 +860,29 @@ function play() {
   if (curTime >= T.total(state.durations) - 0.01) curTime = 0;
   playing = true; lastTick = performance.now(); syncAudio(true); requestAnimationFrame(tick);
 }
-function pause() { playing = false; if (!audio.paused) audio.pause(); }
+function pause() { playing = false; if (!audio.paused) audio.pause(); state.images.forEach(im => { if (im.kind === 'video' && !im.video.paused) im.video.pause(); }); }
+function syncClips() {
+  state.images.forEach((im, i) => {
+    if (im.kind !== 'video') return;
+    if (i !== selected || !playing) { if (!im.video.paused) im.video.pause(); return; }
+    const t = clipTime(i, curTime);
+    if (t >= im.duration - 0.05) { if (!im.video.paused) im.video.pause(); return; }
+    if (Math.abs(im.video.currentTime - t) > 0.3) im.video.currentTime = t;
+    if (im.video.paused) im.video.play().catch(() => {});
+  });
+}
 function tick(now) {
   if (!playing) return;
   const total = T.total(state.durations); const dt = (now - lastTick) / 1000; lastTick = now;
   if (state.audio && !audio.paused && curTime < state.audio.duration) curTime = audio.currentTime; else curTime += dt;
   if (curTime >= total) { curTime = total; playing = false; audio.pause(); }
-  syncAudio(false); updateTimeUi(); draw();
+  syncAudio(false); updateTimeUi(); syncClips(); draw();
   if (playing) requestAnimationFrame(tick);
 }
 $('playBtn').onclick = play;
 $('pauseBtn').onclick = () => { pause(); updateTimeUi(); };
 $('timeline').addEventListener('input', e => { curTime = Number(e.target.value); syncAudio(true); updateTimeUi(); draw(); });
-$('zoomChk').onchange = e => { state.zoom = e.target.checked; draw(); };
+$('motionSel').onchange = e => { state.motion = e.target.value; draw(); };
 $('qualitySel').onchange = e => { state.quality = e.target.value; };
 
 // ================= 4. Exportación MP4 (WebCodecs + mp4-muxer) =================
@@ -579,8 +944,11 @@ $('exportBtn').onclick = async () => {
     // 1
     start(0);
     if (!state.images.length) throw new Error('No hay imágenes cargadas.');
-    state.images.forEach((im, i) => { if (!im.img.complete || !im.w) throw new Error(`La imagen de la escena ${i + 1} (${im.name}) no se puede leer.`); });
-    done(0, `${state.images.length} imágenes válidas`);
+    state.images.forEach((im, i) => {
+      if (im.kind === 'video' ? im.video.readyState < 1 : (!im.img.complete || !im.w)) throw new Error(`${im.kind === 'video' ? 'El video' : 'La imagen'} de la escena ${i + 1} (${im.name}) no se puede leer.`);
+    });
+    const nvid = state.images.filter(im => im.kind === 'video').length;
+    done(0, `${state.images.length - nvid} imágenes${nvid ? ` y ${nvid} clips de video` : ''} válidos`);
     // 2
     start(1);
     if (!state.audio) throw new Error('Falta el audio (la voz). Carga un archivo MP3, WAV o M4A.');
@@ -607,7 +975,7 @@ $('exportBtn').onclick = async () => {
     vEnc.configure(vcfg);
     done(3, `${W}x${H} a ${FPS} fps · H.264 + ${amux === 'aac' ? 'AAC' : 'Opus'}`);
     // 5
-    start(4, state.zoom ? 'Movimiento suave (zoom lento digital)' : 'Sin movimiento');
+    start(4, { auto: 'Cámara automática según la acción (zoom o desplazamiento digital)', zoom: 'Zoom lento digital', pan: 'Desplazamiento lateral digital', none: 'Sin movimiento de cámara' }[state.motion] + (nvid ? ' · clips con su movimiento original' : ''));
     const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d', { alpha: false });
     let f = 0;
@@ -615,8 +983,9 @@ $('exportBtn').onclick = async () => {
       job.steps[4].detail = `Escena ${i + 1}/${state.images.length}`;
       for (let k = 0; k < frames[i]; k++, f++) {
         if (encErr) throw encErr;
-        const z = state.zoom ? 1 + ZOOM * (frames[i] > 1 ? k / (frames[i] - 1) : 0) : 1;
-        drawScene(ctx, W, H, state.images[i], z);
+        const im = state.images[i];
+        if (im.kind === 'video') await seekTo(im.video, Math.min(k / FPS, im.duration - 1 / FPS));
+        drawScene(ctx, W, H, im, cameraFor(im, frames[i] > 1 ? k / (frames[i] - 1) : 0));
         const frame = new VideoFrame(canvas, { timestamp: Math.round(f * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
         vEnc.encode(frame, { keyFrame: f % (FPS * 2) === 0 });
         frame.close();
@@ -626,7 +995,7 @@ $('exportBtn').onclick = async () => {
     }
     await vEnc.flush(); if (encErr) throw encErr;
     vEnc.close(); vEnc = null;
-    job.percent = 82; done(4, `${state.images.length} escenas, ${totalFrames} fotogramas`);
+    job.percent = 82; done(4, `${state.images.length} escenas, ${totalFrames} fotogramas${nvid ? ` · ${nvid} clip${nvid === 1 ? '' : 's'} con su movimiento original` : ''}`);
     // 6
     start(5);
     const pcm = await resampleTo48k(state.audio.buffer, total);

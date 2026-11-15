@@ -62,12 +62,16 @@ const step = m => console.log('✓', m);
     assert.match(await p.inputValue('#sceneText'), /señal llegó/);
     step('📄 CARGAR ARCHIVO TXT en el Editor: archivo ANSI real con tildes/ñ → 4 escenas numeradas y asociadas a sus imágenes; archivo no válido → mensaje');
     await p.click('#distributeBtn');
-    assert.match(await p.textContent('#distMsg'), /APROXIMADA/);
+    // Sin pausas en este audio de prueba (tono continuo): los cambios se estiman por la longitud de cada frase, y se dice
+    assert.match(await p.textContent('#distMsg'), /Sincronizado con tu voz: 0 de 3 cambios de escena caen en pausas reales.*se estimó por la longitud de la frase/);
+    const dd = await p.evaluate(() => window.__editor.state.durations);
+    assert.ok(dd[1] > dd[0] && dd[1] > dd[2], 'la línea larga recibe más tiempo: ' + dd);
+    assert.ok(Math.abs(dd.reduce((a, b) => a + b, 0) - 6.04) < 0.1);
     await p.fill('#sceneText', '[00:00] a\n[00:01] b\n[00:03] c\n[00:04.5] d');
     await p.click('#distributeBtn');
     assert.match(await p.textContent('#distMsg'), /marcas de tiempo reales/);
     assert.deepStrictEqual((await p.evaluate(() => window.__editor.state.durations)).slice(0, 3), [1, 2, 1.5]);
-    step('Repartir con el audio: aproximado por texto y con marcas reales');
+    step('Repartir con el audio: por la voz (sin pausas → estimado por texto, indicado) y con marcas reales');
     await p.fill('#allDur', '1.5'); await p.click('#applyAllBtn');
     assert.strictEqual(await p.textContent('#galTitle'), 'Escenas — 4 imágenes — 0:06.0');
     await p.locator('.card').nth(2).click();

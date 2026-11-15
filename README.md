@@ -18,6 +18,17 @@ Está creada desde cero. No usa, importa ni depende de IMPERIO PRO ni de ningún
 - Los archivos no salen del dispositivo y no se guardan entre sesiones.
 - Prueba: `YA_MP4MUXER=<ruta a mp4-muxer.js> node tests/e2e-tablet.js`.
 
+**Motor Stickman (Editor de tablet, `tablet/editor-tablet.html`)**:
+- **Análisis con IA**: envía cada imagen (y un fotograma de cada clip) a Claude mediante la capacidad `sample` del visor de claude.ai. Obtiene los personajes por color y rasgos, cabeza/cuerpo, brazos/piernas, pose, acción, gesto, emoción, objetos, escenario e interacción.
+- **Orden narrativo**: con la narración (TXT o SRT) y las descripciones, Claude reconoce los personajes recurrentes y ordena todas las imágenes según la historia, asignando a cada una un tramo de líneas. El resultado se valida en la página: cada imagen una vez, tramos en orden y sin huecos.
+- **Sincronización con la voz**: se detectan las pausas reales del audio (energía RMS) y los cambios de escena se colocan en ellas con programación dinámica. Si hay marcas SRT/VTT, se usan esas.
+  - No hay transcripción palabra por palabra: la página no tiene reconocimiento de voz para archivos.
+- **Clips de video** (MP4/WEBM): conservan su movimiento original, sin zoom. Si la escena dura más que el clip, se mantiene su último fotograma.
+- **Imágenes fijas**: llevan un movimiento digital de cámara (zoom o desplazamiento) que se indica como tal.
+- **Correcciones**: mover escenas y editar duraciones. Cada escena muestra acción, personajes, frase, inicio, fin, duración y la coincidencia de la IA.
+- **Prueba**: `tests/e2e-stickman.js`. Usa un doble de pruebas de Claude y comprueba de verdad los lotes, el orden, las pausas, las correcciones y el MP4.
+  - El movimiento del clip dentro del MP4 no se pudo verificar en el servidor de pruebas, porque su Chromium no decodifica video.
+
 **RaulitoShow IA para tablet**: Chrome para Android no admite extensiones, así que se instala como **marcador** (bookmarklet). Al tocarlo dentro de Google Flow, abre el mismo panel con el mismo motor (`extension/engine.js`) que la extensión.
 - La interfaz va en Shadow DOM sin `innerHTML`, por las restricciones de Trusted Types de Google.
 - El estado se guarda en `localStorage` y el personaje en IndexedDB.
