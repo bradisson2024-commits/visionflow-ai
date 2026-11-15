@@ -618,7 +618,8 @@ function syncToVoice() {
 // ================= Motor Stickman (IA) =================
 let sampleFn;
 async function getSample() {
-  if (sampleFn !== undefined) return sampleFn;
+  if (sampleFn) return sampleFn;
+  // Si falla (vista sin Claude o aún cargando), no se guarda: el siguiente intento vuelve a probar.
   sampleFn = window.claude && window.claude.use ? await window.claude.use('sample') : null;
   return sampleFn;
 }
@@ -701,7 +702,7 @@ $('aiBtn').onclick = async () => {
   const n = state.images.length;
   if (!n) return aiMsg('Carga primero tus imágenes o videos Stickman.', 'warn');
   const sample = await getSample();
-  if (!sample) return aiMsg('El análisis con IA no está disponible en esta vista. Abre el Editor desde claude.ai.', 'warn');
+  if (!sample) return aiMsg('El análisis con IA no está disponible en esta vista. Abre el enlace del Editor dentro de claude.ai (en Chrome, con tu cuenta iniciada) y vuelve a pulsar. Si te pide permiso para usar Claude, acéptalo.', 'warn');
   const caps = await sample.limits().catch(() => null);
   if (!caps || !caps.images) return aiMsg('Esta vista no puede enviar imágenes a Claude. Abre el Editor desde claude.ai en Chrome.', 'warn');
   aiRunning = true; $('aiBtn').disabled = true; pause();
