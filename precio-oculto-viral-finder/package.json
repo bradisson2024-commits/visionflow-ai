@@ -1,0 +1,16 @@
+{
+  "name": "precio-oculto-viral-finder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EL PRECIO OCULTO VIRAL FINDER: busca videos virales reales de YouTube, detecta oportunidades y produce videos originales con ilustraciones Stickman, voz y montaje MP4.",
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/main.js",
+    "test": "node --disable-warning=ExperimentalWarning --test \"tests/*.test.js\"",
+    "test:extension": "node --disable-warning=ExperimentalWarning tests/extension.e2e.mjs"
+  },
+  "dependencies": {
+    "msedge-tts": "2.1.1"
+  }
+}

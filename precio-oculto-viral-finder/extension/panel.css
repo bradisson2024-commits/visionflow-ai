@@ -1,0 +1,23 @@
+body { margin: 0; font: 13px/1.45 "Segoe UI", system-ui, sans-serif; background: #f5eddc; color: #15130f; }
+header { display: flex; gap: 10px; align-items: center; background: #15130f; color: #f2c230; padding: 10px 12px; }
+header img { width: 34px; height: 34px; background: #f5eddc; border-radius: 8px; }
+header small { display: block; color: #cbbd9f; }
+section { padding: 10px 12px; border-bottom: 1px solid #e1d3b4; display: flex; flex-direction: column; gap: 8px; }
+label { display: flex; flex-direction: column; gap: 3px; color: #5d5344; }
+label.check { flex-direction: row; align-items: center; gap: 6px; }
+input, select, button { font: inherit; }
+input:not([type]), select { padding: 6px 8px; border: 1px solid #cdbb94; border-radius: 6px; background: #fff; }
+button { cursor: pointer; border-radius: 8px; padding: 8px 12px; border: 1px solid #bda673; background: #fff; }
+button.main { background: #f2c230; border-color: #b8890f; font-weight: 800; font-size: 15px; padding: 11px; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.status { display: flex; gap: 6px; align-items: center; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #c9b991; display: inline-block; }
+.dot.ok { background: #2f7d4b; } .dot.bad { background: #b3261e; } .dot.warn { background: #d4a017; }
+.hint { background: #fff4d6; border: 1px solid #efd28a; padding: 8px; border-radius: 6px; margin: 0; }
+.bar { height: 7px; background: #e6d7b5; border-radius: 9px; overflow: hidden; } .bar i { display: block; height: 100%; width: 0; background: #8b5a2b; }
+.small { font-size: 12px; color: #5d5344; }
+ol { margin: 0; padding: 8px 12px 8px 30px; }
+li { margin: 4px 0; } li .st { font-weight: 700; } li.ok .st { color: #2f7d4b; } li.err .st { color: #b3261e; } li.run .st { color: #8b5a2b; }
+li .p { display: block; color: #7b6f5c; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+pre { white-space: pre-wrap; font-size: 11px; padding: 8px 12px; margin: 0; }
+details summary { padding: 6px 12px; cursor: pointer; }

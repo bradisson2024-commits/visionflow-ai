@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "EPO · Conector Flow",
+  "short_name": "EPO Flow",
+  "version": "1.0.0",
+  "description": "El Precio Oculto Viral Finder: envía las escenas de tu proyecto a Google Flow y devuelve cada imagen a su escena.",
+  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "action": { "default_title": "EPO · Conector Flow", "default_icon": { "16": "icons/16.png", "48": "icons/48.png" } },
+  "side_panel": { "default_path": "panel.html" },
+  "background": { "service_worker": "worker.js" },
+  "permissions": ["sidePanel", "storage", "tabs"],
+  "host_permissions": [
+    "http://127.0.0.1/*", "http://localhost/*",
+    "https://flow.google.com/*", "https://labs.google/*",
+    "https://*.googleusercontent.com/*", "https://*.googleapis.com/*", "https://*.ggpht.com/*"
+  ],
+  "content_scripts": [{
+    "matches": ["https://flow.google.com/*", "https://labs.google/fx/*"],
+    "js": ["flow-page.js"],
+    "run_at": "document_idle"
+  }]
+}

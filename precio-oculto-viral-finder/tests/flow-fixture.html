@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- PÁGINA DE PRUEBAS — NO ES GOOGLE FLOW. Imita un generador de imágenes (cuadro de prompt, adjuntar imagen,
+     botón de generar y resultados) para probar la extensión «EPO · Conector Flow» sin cuenta de Google. -->
+<html lang="es"><head><meta charset="utf-8"><title>Página de pruebas (no es Google Flow)</title>
+<style>body{font-family:sans-serif} #out img{width:320px;margin:4px} .bar{display:flex;gap:6px;margin-top:8px}</style></head>
+<body>
+<h1>Página de pruebas — no es Google Flow</h1>
+<div id="out"></div>
+<div style="position:fixed;bottom:10px;left:10px;right:10px;border:1px solid #999;padding:10px;background:#fff">
+  <div id="chips"></div>
+  <textarea id="box" rows="3" style="width:90%" placeholder="Describe tu imagen"></textarea>
+  <div class="bar">
+    <button aria-label="Añadir imagen" id="add">+</button>
+    <button aria-label="Generar" id="gen"><span>arrow_forward</span></button>
+  </div>
+</div>
+<script>
+  window.__seen = []; window.__refs = 0;
+  document.getElementById('add').onclick = () => {
+    if (document.querySelector('input[type=file]')) return;
+    const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.style.display = 'none';
+    i.onchange = () => { window.__refs += i.files.length; document.getElementById('chips').textContent = `Referencia: ${i.files[0].name}`; };
+    document.body.appendChild(i);
+  };
+  document.getElementById('gen').onclick = () => {
+    const p = document.getElementById('box').value;
+    window.__seen.push(p);
+    document.getElementById('box').value = '';
+    if (/CAPTCHA/.test(p)) { const f = document.createElement('iframe'); f.src = 'about:blank#recaptcha'; f.title = 'reCAPTCHA'; document.body.appendChild(f); return; }
+    setTimeout(() => {
+      const c = document.createElement('canvas'); c.width = 1024; c.height = 576;
+      const g = c.getContext('2d'); g.fillStyle = '#f5eddc'; g.fillRect(0, 0, 1024, 576);
+      let h = 2166136261; for (const ch of p) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+      const rnd = () => { h = (h + 0x6D2B79F5) >>> 0; let t = Math.imul(h ^ (h >>> 15), 1 | h); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+      for (let k = 0; k < 9; k++) { g.fillStyle = `hsl(${Math.floor(rnd() * 360)},65%,${30 + Math.floor(rnd() * 40)}%)`; g.fillRect(rnd() * 900, rnd() * 480, 60 + rnd() * 320, 50 + rnd() * 260); }
+      c.toBlob((b) => { const img = document.createElement('img'); img.src = URL.createObjectURL(b); document.getElementById('out').appendChild(img); });
+    }, 1200);
+  };
+</script>
+</body></html>

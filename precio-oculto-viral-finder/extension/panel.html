@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><title>EPO · Conector Flow</title><link rel="stylesheet" href="panel.css"></head>
+<body>
+<header><img src="icons/48.png" alt=""><div><b>EL PRECIO OCULTO</b><small>Conector Google Flow</small></div></header>
+<section>
+  <div class="status"><span id="sApp" class="dot"></span> App <span id="sFlow" class="dot"></span> Google Flow</div>
+  <p id="hint" class="hint" hidden></p>
+</section>
+<section>
+  <label>Dirección de la app <input id="appUrl" value="http://127.0.0.1:5730"></label>
+  <label>Proyecto <select id="project"><option value="">—</option></select></label>
+  <button id="reload" class="ghost">↻ Actualizar</button>
+</section>
+<section>
+  <label class="check"><input type="checkbox" id="useRef" checked> Adjuntar la mascota oficial como referencia</label>
+  <label>Pausa entre escenas: <b id="gapTxt">6</b> s <input type="range" id="gap" min="2" max="30" value="6"></label>
+  <label>Tiempo máximo por imagen: <b id="toTxt">4</b> min <input type="range" id="timeout" min="1" max="10" value="4"></label>
+</section>
+<section class="go">
+  <button id="start" class="main">ENVIAR A FLOW</button>
+  <button id="stop" class="ghost" disabled>Detener</button>
+  <div class="bar"><i id="bar"></i></div>
+  <div id="summary" class="small">Elige un proyecto.</div>
+</section>
+<ol id="items"></ol>
+<details><summary>Registro</summary><pre id="log"></pre></details>
+<script src="panel.js"></script>
+</body>
+</html>
