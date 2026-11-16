@@ -28,7 +28,7 @@ export function scoreVideo(v, subs, competition, now = Date.now()) {
   if (outlier != null) reasons.push(outlier >= 3 ? `Tiene ${outlier.toFixed(1)}× más vistas que suscriptores: el tema funciona por sí mismo.` : `Vistas ${outlier.toFixed(1)}× sus suscriptores: depende más del tamaño del canal.`);
   else reasons.push('El canal oculta sus suscriptores: no se puede medir si es un caso atípico.');
   reasons.push(`Interacción ${(engagement * 100).toFixed(2)} % (me gusta + comentarios × 2 / vistas).`);
-  if (competition) reasons.push(competition.count <= 2 ? `Poca competencia en español: ${competition.count} videos con más de 100.000 vistas en 6 meses.` : `Competencia en español: ${competition.count} de ${competition.sample} videos superan 100.000 vistas en 6 meses.`);
+  if (competition) reasons.push(competition.count <= 2 ? `Poca competencia en español: ${competition.count === 1 ? '1 video' : `${competition.count} videos`} con más de 100.000 vistas en 6 meses.` : `Competencia en español: ${competition.count} de ${competition.sample} videos superan 100.000 vistas en 6 meses.`);
   else reasons.push('Competencia en español no medida en esta búsqueda.');
   reasons.push(parts.encaje >= 10 ? 'El tema encaja con El Precio Oculto (dinero, negocio o secreto detrás de algo).' : 'El encaje con El Precio Oculto no es evidente en el título.');
   return { score, level, parts, metrics: { ageDays: +ageDays.toFixed(1), viewsPerDay: Math.round(vpd), outlier: outlier == null ? null : +outlier.toFixed(2), engagement: +engagement.toFixed(4), subscribers: subs, competition }, reasons };
