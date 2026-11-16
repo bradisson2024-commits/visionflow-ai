@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:e2e": "node tests/e2e-flow.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",

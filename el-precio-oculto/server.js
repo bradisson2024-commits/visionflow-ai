@@ -8,6 +8,8 @@ import { createProject, loadProject, listProjects, projectDir, projectPath } fro
 import { runPipeline, sceneAction, setTranscript, publicProject, events, isRunning } from './lib/pipeline.js';
 import { ffmpegAvailable } from './lib/media.js';
 import { zipDir } from './lib/zip.js';
+import { flowQueue, flowTxt, saveFlowResult, flowSummary } from './lib/flow.js';
+import { imageProviderName } from './lib/config.js';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json; charset=utf-8', '.md': 'text/markdown; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.mp4': 'video/mp4', '.svg': 'image/svg+xml' };
 
@@ -53,7 +55,7 @@ const route = (method, pattern, fn) => routes.push({ method, re: new RegExp(`^${
 route('GET', '/api/status', async (req, res) => {
   const ff = await ffmpegAvailable();
   const st = serviceStatus().map((s) => (s.id === 'ffmpeg' ? { ...s, ok: !!ff, role: ff || s.role, missing: ff ? null : 'FFmpeg no está instalado o no está en el PATH. Sin FFmpeg no se puede montar ni verificar el video.' } : s));
-  send(res, 200, { services: st });
+  send(res, 200, { services: st, projectsDir: config.projectsDir, app: 'el-precio-oculto', imageProvider: imageProviderName() });
 });
 
 // Prueba real de la voz: sintetiza una frase corta para escucharla antes de generar un video.
@@ -80,6 +82,48 @@ route('POST', '/api/replicate', async (req, res) => {
   if (b.transcript) await setTranscript(p.id, b.transcript, b.transcriptSource);
   runPipeline(p.id, { only: 'datos' });
   send(res, 200, { id: p.id });
+});
+
+// ---------------------------------------------------------------- Puente Google Flow (extensión RaulitoShow IA)
+async function rawBody(req, limit = 40e6) {
+  const chunks = [];
+  let size = 0;
+  for await (const c of req) { size += c.length; if (size > limit) throw new Error('Archivo demasiado grande'); chunks.push(c); }
+  return Buffer.concat(chunks);
+}
+
+route('GET', '/api/flow/projects', async (req, res) => {
+  const out = [];
+  for (const it of listProjects()) {
+    const p = loadProject(it.id);
+    const sum = flowSummary(p);
+    if (sum) out.push({ id: p.id, title: p.script?.title || p.original?.title, ...sum, pendingCount: sum.pending.length + (sum.sheet ? 0 : 1) });
+  }
+  send(res, 200, { projects: out });
+});
+
+route('GET', '/api/flow/queue/:id', async (req, res, { id }, url) => {
+  const p = loadProject(id);
+  if (!p) return fail(res, 404, 'Proyecto no encontrado');
+  send(res, 200, flowQueue(p, { skipSheet: url.searchParams.get('skipSheet') === '1' }));
+});
+
+const flowSave = async (req, res, projectId, name) => {
+  try {
+    const r = await saveFlowResult(projectId, name, await rawBody(req));
+    send(res, 201, r);
+  } catch (e) { fail(res, e.status || 500, e.message); }
+};
+// La extensión llama a esta ruta (misma forma que la app YOUTUBE AUTOMATIZADO).
+route('POST', '/api/flow/save', async (req, res, _p, url) => flowSave(req, res, url.searchParams.get('project'), url.searchParams.get('name')));
+// Importación manual desde la página del proyecto (resultados descargados con el marcador de tablet, etc.).
+route('POST', '/api/projects/:id/flow-import', async (req, res, { id }, url) => flowSave(req, res, id, url.searchParams.get('name')));
+
+route('GET', '/api/projects/:id/flow-prompts.txt', async (req, res, { id }) => {
+  const p = loadProject(id);
+  if (!p?.scenes?.length) return fail(res, 404, 'El proyecto no tiene escenas todavía.');
+  res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'content-disposition': `attachment; filename="prompts_flow_${id}.txt"` });
+  res.end(flowTxt(p));
 });
 
 route('GET', '/api/projects', async (req, res) => send(res, 200, { projects: listProjects() }));
@@ -143,7 +187,9 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
     if (url.pathname.startsWith('/api/')) {
-      if (config.accessToken && req.headers['x-access-token'] !== config.accessToken && url.searchParams.get('token') !== config.accessToken) return fail(res, 401, 'Falta el token de acceso (APP_ACCESS_TOKEN).');
+      // El puente de Flow y el estado quedan fuera del token: la extensión no lo conoce (el servidor sólo escucha en 127.0.0.1).
+      const open = url.pathname === '/api/status' || url.pathname.startsWith('/api/flow/');
+      if (!open && config.accessToken && req.headers['x-access-token'] !== config.accessToken && url.searchParams.get('token') !== config.accessToken) return fail(res, 401, 'Falta el token de acceso (APP_ACCESS_TOKEN).');
       for (const r of routes) {
         if (r.method !== req.method) continue;
         const m = r.re.exec(url.pathname);

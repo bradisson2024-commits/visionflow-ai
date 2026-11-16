@@ -9,7 +9,8 @@ import { STEPS, loadProject, saveProject, projectPath } from './project.js';
 import { analyzeOriginal, transcribeWithGemini } from './analysis.js';
 import { research } from './research.js';
 import * as S from './script.js';
-import { buildCharacters, planVisuals, fullPrompt, generateImageFile, generateCharacterSheet, STYLE, NEGATIVE } from './visuals.js';
+import { buildCharacters, planVisuals, fullPrompt, generateImageFile, generateCharacterSheet, thumbnailPrompt } from './visuals.js';
+import { flowSummary, scenePromptForFlow, fileHash } from './flow.js';
 import { reviewScene, findDuplicates, isApproved } from './coherence.js';
 import { synthesizeScene, audioLooksComplete } from './tts.js';
 import { computeTimeline, validateTimeline } from './timeline.js';
@@ -130,15 +131,20 @@ const STEP_FN = {
     p.characters = await buildCharacters({ topic: p.script.title, script: S.stripRefs(S.fullNarration(p.script.sections)) });
     log(p, `Personajes: ${p.characters.map((c) => c.name).join(', ')}.`);
     await planVisuals({ scenes, characters: p.characters, title: p.script.title, log: (m) => log(p, m) });
+    const tp = await generate({ json: true, temperature: 0.6, system: 'Diseñas miniaturas de YouTube muy llamativas con ilustraciones stickman.', prompt: `Título: ${p.script.title}\nTexto de la miniatura: ${p.script.thumbnailText}\nPersonaje principal: ${p.characters[0].description}\nDevuelve JSON {"prompt_en": string} con una escena (en inglés, 30–50 palabras) muy expresiva y fácil de leer en pequeño, con el personaje sorprendido descubriendo el secreto del tema; deja libre el tercio inferior para el texto.` });
+    p.thumbnailPrompt = String(tp.data.prompt_en || '').trim() || null;
     const seedBase = parseInt(hash(p.id).slice(0, 6), 16) % 900000;
     p.scenes = scenes.map((s) => ({ ...s, seed: seedBase + s.n * 7, image: null, review: null, audio: null, audioDuration: null }));
     for (const f of fs.readdirSync(projectPath(p.id, 'escenas'))) fs.rmSync(projectPath(p.id, 'escenas', f));
+    // Escenas nuevas: las imágenes anteriores ya no corresponden a ninguna narración.
+    for (const f of fs.readdirSync(projectPath(p.id, 'imagenes'))) if (/^escena_\d{3}\.png$|^personajes\.png$|^miniatura_base\.png$/.test(f)) fs.rmSync(projectPath(p.id, 'imagenes', f));
     writeSceneFiles(p);
     return `${p.scenes.length} escenas, cada una con su narración y su imagen planificada.`;
   },
 
   async imagenes(p, { force } = {}) {
-    if (imageProviderName() === 'pollinations' && !config.pollinationsToken) log(p, 'Aviso: Pollinations sin token sólo usa el modelo «sana», que en pruebas no logra el estilo Stickman. Recomendado: GEMINI_API_KEY o POLLINATIONS_TOKEN. Las imágenes se revisarán igualmente antes del montaje.', 'warn');
+    if (imageProviderName() === 'flow') return syncFlowImages(p);
+    if (imageProviderName() === 'pollinations' && !config.pollinationsToken) log(p, 'Aviso: Pollinations sin token sólo usa el modelo «sana», que en pruebas no logra el estilo Stickman. Recomendado: Flow, GEMINI_API_KEY o POLLINATIONS_TOKEN. Las imágenes se revisarán igualmente antes del montaje.', 'warn');
     const sheet = projectPath(p.id, 'imagenes', 'personajes.png');
     if (!fs.existsSync(sheet) || force) {
       log(p, 'Generando hoja de personajes (referencia de consistencia)…');
@@ -154,27 +160,30 @@ const STEP_FN = {
       saveProject(p);
     }
     const thumbBase = projectPath(p.id, 'imagenes', 'miniatura_base.png');
-    if (!fs.existsSync(thumbBase) || force) {
-      const tp = await generate({ json: true, temperature: 0.6, system: 'Diseñas miniaturas de YouTube muy llamativas con ilustraciones stickman.', prompt: `Título: ${p.script.title}\nTexto de la miniatura: ${p.script.thumbnailText}\nPersonaje principal: ${p.characters[0].description}\nDevuelve JSON {"prompt_en": string} con una escena (en inglés, 30–50 palabras) muy expresiva y fácil de leer en pequeño, con el personaje sorprendido descubriendo el secreto del tema; deja libre el tercio inferior para el texto.` });
-      await generateImageFile({ prompt: `${tp.data.prompt_en}. Bold, high contrast, large simple shapes. Style: ${STYLE}. ${NEGATIVE}`, seed: (p.scenes[0]?.seed || 1) + 99991, outFile: thumbBase, refImage: ref });
+    if ((!fs.existsSync(thumbBase) || force) && p.thumbnailPrompt) {
+      await generateImageFile({ prompt: thumbnailPrompt(p.thumbnailPrompt), seed: (p.scenes[0]?.seed || 1) + 99991, outFile: thumbBase, refImage: ref });
       log(p, 'Imagen base de la miniatura generada.');
     }
     return `${p.scenes.length} imágenes generadas (${p.scenes[0]?.image?.provider}).`;
   },
 
   async coherencia(p) {
-    const sheet = fs.readFileSync(projectPath(p.id, 'imagenes', 'personajes.png'));
+    const flow = imageProviderName() === 'flow';
+    const sheetFile = projectPath(p.id, 'imagenes', 'personajes.png');
+    const sheet = fs.existsSync(sheetFile) ? fs.readFileSync(sheetFile) : null;
     const vision = visionProviderName();
     for (const s of p.scenes) {
       if (isApproved(s) && s.review?.imageHash === s.image?.fileHash) continue;
+      if (s.review?.state === 'corregir' && s.review.imageHash === s.image?.fileHash && flow) continue; // ya está en la cola de Flow
       let attempts = 0;
       for (;;) {
         const rev = await reviewScene({ scene: s, imageFile: imageFile(p, s), characters: p.characters });
         s.review = { ...rev, imageHash: s.image.fileHash, attempts };
-        if (rev.state !== 'corregir' || attempts >= 2) break;
+        if (rev.state !== 'corregir') break;
+        if (rev.fix) s.image.fix = rev.fix; // la corrección se añade al prompt de la próxima generación
+        if (flow || attempts >= 2) break;    // con Flow la regeneración ocurre en el navegador
         attempts++;
         log(p, `Escena ${s.n}: la imagen no representa bien la narración (${rev.problems.join('; ')}). Regenerando (${attempts}/2)…`, 'warn');
-        s.image.fix = rev.fix;
         await makeImage(p, s, { refImage: sheet, reseed: true });
       }
       log(p, `Escena ${s.n}: ${labelReview(s.review)}.`, s.review.state === 'corregir' ? 'warn' : 'info');
@@ -184,17 +193,27 @@ const STEP_FN = {
     const dups = await findDuplicates(p.scenes, (s) => imageFile(p, s));
     for (const d of dups) {
       const s = p.scenes.find((x) => x.n === d.b);
-      log(p, `Las escenas ${d.a} y ${d.b} tienen imágenes casi idénticas: se regenera la ${d.b}.`, 'warn');
       s.image.fix = `make it clearly different from the previous scene: ${s.visual.description}`;
+      if (flow) {
+        s.review = { state: 'corregir', problems: [`Imagen casi idéntica a la de la escena ${d.a}`], imageHash: s.image.fileHash, at: new Date().toISOString() };
+        log(p, `Las escenas ${d.a} y ${d.b} tienen imágenes casi idénticas: la ${d.b} vuelve a la cola de Flow.`, 'warn');
+        continue;
+      }
+      log(p, `Las escenas ${d.a} y ${d.b} tienen imágenes casi idénticas: se regenera la ${d.b}.`, 'warn');
       await makeImage(p, s, { refImage: sheet, reseed: true });
       s.review = vision ? { ...(await reviewScene({ scene: s, imageFile: imageFile(p, s), characters: p.characters })), imageHash: s.image.fileHash } : { state: 'revision_manual', reason: 'Imagen regenerada por repetición: revísala.' };
     }
     writeSceneFiles(p);
     const pending = p.scenes.filter((s) => !isApproved(s));
     if (pending.length) {
-      const e = new Error(vision
-        ? `${pending.length} escena(s) necesitan corrección: ${pending.map((s) => s.n).join(', ')}. Edita la descripción de la imagen o apruébala a mano en la pestaña Escenas.`
-        : `Sin IA con visión, revisa y aprueba a mano las ${pending.length} imágenes en la pestaña Escenas (narración e imagen lado a lado). Luego pulsa «GENERAR VIDEO COMPLETO» para continuar.`);
+      const toFlow = flow ? pending.filter((s) => s.review?.state === 'corregir') : [];
+      const manual = pending.filter((s) => !toFlow.includes(s));
+      const parts = [];
+      if (toFlow.length) parts.push(`${toFlow.length} imagen(es) no representan su narración y vuelven a la cola de Flow (escenas ${toFlow.map((s) => s.n).join(', ')}): en el panel de la extensión pulsa «Cargar escenas del proyecto» e INICIAR, o apruébalas a mano si te parecen correctas.`);
+      if (manual.length) parts.push(vision
+        ? `${manual.length} escena(s) necesitan corrección: ${manual.map((s) => s.n).join(', ')}. Edita la descripción de la imagen o apruébala a mano.`
+        : `Sin IA con visión, revisa y aprueba a mano ${manual.length} imagen(es) (narración e imagen lado a lado).`);
+      const e = new Error(`${parts.join(' ')} Después pulsa «GENERAR VIDEO COMPLETO».`);
       e.needsReview = true;
       throw e;
     }
@@ -253,7 +272,9 @@ const STEP_FN = {
       },
     });
     await exportNarrationMp3(out(p, 'narracion.wav'), out(p, 'narracion.mp3'));
-    const th = await composeThumbnail({ imageFile: projectPath(p.id, 'imagenes', 'miniatura_base.png'), text: p.script.thumbnailText, outFile: out(p, 'miniatura.png') });
+    let thumbSrc = projectPath(p.id, 'imagenes', 'miniatura_base.png');
+    if (!fs.existsSync(thumbSrc)) { thumbSrc = imageFile(p, p.scenes[0]); log(p, 'Miniatura: no hay imagen base propia; se usa la imagen de la escena 1.', 'warn'); }
+    const th = await composeThumbnail({ imageFile: thumbSrc, text: p.script.thumbnailText, outFile: out(p, 'miniatura.png') });
     if (!th.text) log(p, `Miniatura sin texto: ${th.reason}.`, 'warn');
     p.render = { at: new Date().toISOString(), timeline: tl, music: bed.music, sfx: bed.sfx, stale: false };
     fs.writeFileSync(out(p, 'linea_de_tiempo.json'), JSON.stringify(tl, null, 2));
@@ -277,6 +298,35 @@ const STEP_FN = {
     return 'Todas las comprobaciones superadas. MP4 listo para descargar.';
   },
 };
+
+/** Modo Flow: incorpora las imágenes que la extensión dejó en disco y comprueba qué falta. */
+async function syncFlowImages(p) {
+  let changed = 0;
+  for (const s of p.scenes) {
+    const f = imageFile(p, s);
+    if (!fs.existsSync(f)) continue;
+    const fh = fileHash(f);
+    if (s.image?.fileHash === fh) continue;
+    const prompt = scenePromptForFlow(p, s);
+    s.image = { provider: 'flow', prompt, promptHash: hash(prompt), fix: s.image?.fix || '', fileHash: fh, at: new Date(fs.statSync(f).mtimeMs).toISOString() };
+    s.review = null;
+    delete s.flowRequest;
+    changed++;
+  }
+  saveProject(p);
+  const sum = flowSummary(p);
+  if (changed) log(p, `Flow: ${changed} imagen(es) nueva(s) incorporada(s). Recibidas ${sum.received}/${sum.total}.`);
+  const missing = p.scenes.filter((s) => !fs.existsSync(imageFile(p, s))).map((s) => s.n);
+  const requested = p.scenes.filter((s) => s.flowRequest).map((s) => s.n);
+  if (missing.length || requested.length) {
+    const e = new Error(`Esperando imágenes de Google Flow: ${missing.length ? `faltan ${missing.length} de ${sum.total}` : ''}${missing.length && requested.length ? ' y ' : ''}${requested.length ? `${requested.length} pedidas de nuevo` : ''} (escenas ${[...new Set([...missing, ...requested])].slice(0, 30).join(', ')}${missing.length + requested.length > 30 ? '…' : ''}). En Chrome: abre Google Flow, pulsa el icono de RaulitoShow IA → «Cargar escenas del proyecto» → INICIAR. ${sum.sheet ? '' : 'La primera vez se genera la hoja de personajes. '}Cuando termine, vuelve aquí y pulsa «GENERAR VIDEO COMPLETO».`);
+    e.needsReview = true;
+    e.waitingFlow = true;
+    throw e;
+  }
+  if (!sum.thumb) log(p, 'Flow no ha generado la imagen base de la miniatura (escena_900): se usará la imagen de la primera escena.', 'warn');
+  return `${sum.total} imágenes recibidas de Google Flow.`;
+}
 
 async function makeImage(p, s, { refImage, reseed } = {}) {
   if (reseed) s.seed += 101;
@@ -331,9 +381,15 @@ export function runPipeline(id, { from, only, force } = {}) {
   const job = (async () => {
     const p = loadProject(id);
     if (!p) throw new Error('Proyecto no encontrado');
-    let steps = only ? [only] : STEPS.slice(STEPS.indexOf(from || STEPS.find((s) => p.steps[s].state !== 'completado') || 'verificacion'));
+    let start = from || STEPS.find((s) => p.steps[s].state !== 'completado') || 'verificacion';
+    // Modo Flow: si llegaron imágenes nuevas (o hay escenas pedidas de nuevo), se vuelve a sincronizar desde «imágenes».
+    if (!only && !from && imageProviderName() === 'flow' && p.scenes?.length && STEPS.indexOf(start) > STEPS.indexOf('imagenes')) {
+      const changed = p.scenes.some((s) => s.flowRequest || (fs.existsSync(imageFile(p, s)) && fileHash(imageFile(p, s)) !== s.image?.fileHash));
+      if (changed) { start = 'imagenes'; invalidateFrom(p, 'imagenes'); }
+    }
+    let steps = only ? [only] : STEPS.slice(STEPS.indexOf(start));
     if (from) invalidateFrom(p, from);
-    if (!only && !from && STEPS.every((s) => p.steps[s].state === 'completado')) steps = [];
+    if (!only && !from && STEPS.every((st) => p.steps[st].state === 'completado')) steps = [];
     p.status = 'en_proceso';
     saveProject(p);
     emit(p, 'project', { status: p.status });
@@ -377,6 +433,9 @@ export async function sceneAction(id, n, action, body = {}) {
   if (!s) throw new Error('Escena no encontrada');
   if (action === 'approve') {
     if (!fs.existsSync(imageFile(p, s))) throw new Error('La escena no tiene imagen.');
+    const fh = fileHash(imageFile(p, s));
+    if (!s.image || s.image.fileHash !== fh) s.image = { ...(s.image || {}), provider: s.image?.provider || imageProviderName(), fileHash: fh };
+    delete s.flowRequest;
     s.review = { ...(s.review || {}), state: 'aprobada_manual', imageHash: s.image.fileHash, at: new Date().toISOString() };
     log(p, `Escena ${s.n}: aprobada a mano.`);
   } else if (action === 'reject') {
@@ -385,6 +444,14 @@ export async function sceneAction(id, n, action, body = {}) {
     if (body.description) s.visual.description = String(body.description);
     if (body.prompt) s.visual.prompt = String(body.prompt);
     s.image = s.image ? { ...s.image, fix: body.fix ?? s.image.fix } : null;
+    if (imageProviderName() === 'flow') {
+      s.flowRequest = { at: Date.now() };
+      if (!s.image) s.image = { fix: body.fix || '' };
+      log(p, `Escena ${s.n}: en la cola de Google Flow. Genérala desde el panel de la extensión («Cargar escenas del proyecto»).`);
+      invalidateFrom(p, 'imagenes');
+      writeSceneFiles(p); saveProject(p); emit(p, 'project', { status: p.status });
+      return p;
+    }
     const sheetFile = projectPath(p.id, 'imagenes', 'personajes.png');
     await makeImage(p, s, { refImage: fs.existsSync(sheetFile) ? fs.readFileSync(sheetFile) : null, reseed: true });
     if (visionProviderName()) s.review = { ...(await reviewScene({ scene: s, imageFile: imageFile(p, s), characters: p.characters })), imageHash: s.image.fileHash };
@@ -428,6 +495,9 @@ export function publicProject(p) {
   return {
     ...p,
     running: running.has(p.id),
+    imageProvider: imageProviderName(),
+    flow: imageProviderName() === 'flow' ? flowSummary(p) : null,
+    sceneFiles: Object.fromEntries((p.scenes || []).map((s) => { const f = imageFile(p, s); return [s.n, fs.existsSync(f) ? Math.round(fs.statSync(f).mtimeMs) : 0]; })),
     canDownloadMp4: p.status === 'terminado' && !!p.verification?.passed && fs.existsSync(mp4) && !p.render?.stale,
     research: p.research ? { ...p.research, sources: p.research.sources.map(({ excerpt, ...s }) => ({ ...s, excerptChars: excerpt?.length || 0 })) } : null,
   };

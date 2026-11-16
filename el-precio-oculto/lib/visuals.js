@@ -128,6 +128,7 @@ export async function normalizeImage(inFile, outFile) {
 
 export async function generateImageFile({ prompt, seed, outFile, refImage }) {
   const provider = imageProviderName();
+  if (provider === 'flow') throw new ServiceError('Flow', 'Con IMAGE_PROVIDER=flow las imágenes las genera Google Flow mediante la extensión, no el servidor.');
   const img = provider === 'gemini' ? await geminiImage(prompt, refImage) : await pollinationsImage(prompt, seed);
   const raw = `${outFile}.raw`;
   fs.writeFileSync(raw, img.buffer);
@@ -135,9 +136,16 @@ export async function generateImageFile({ prompt, seed, outFile, refImage }) {
   return { provider, bytes: img.buffer.length };
 }
 
+export function characterSheetPrompt(characters) {
+  return `Character reference sheet: ${characters.map((c) => `${c.name}, a ${c.description}`).join('; ')}. All characters standing side by side, full body, evenly spaced. Style: ${STYLE}. ${NEGATIVE}`;
+}
+
 export async function generateCharacterSheet({ characters, outFile, seed }) {
-  const prompt = `Character reference sheet: ${characters.map((c) => `${c.name}, a ${c.description}`).join('; ')}. All characters standing side by side, full body, evenly spaced. Style: ${STYLE}. ${NEGATIVE}`;
-  return generateImageFile({ prompt, seed, outFile });
+  return generateImageFile({ prompt: characterSheetPrompt(characters), seed, outFile });
+}
+
+export function thumbnailPrompt(promptEn) {
+  return `${promptEn}. Bold, high contrast, large simple shapes. Style: ${STYLE}. ${NEGATIVE}`;
 }
 
 // ---------------------------------------------------------------- comprobaciones locales

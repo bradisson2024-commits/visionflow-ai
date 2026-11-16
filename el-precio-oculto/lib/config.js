@@ -68,7 +68,7 @@ export function visionProviderName() {
 export function imageProviderName() {
   const p = config.imageProvider;
   if (p !== 'auto') return p;
-  return config.geminiKey ? 'gemini' : 'pollinations';
+  return 'flow'; // Google Flow (vía extensión) es el generador por defecto del canal
 }
 
 export function ttsProviderName() {
@@ -109,13 +109,17 @@ export function serviceStatus() {
     },
     {
       id: 'images', name: `Imágenes Stickman (${imageProviderName()})`,
-      ok: imageProviderName() === 'gemini' ? !!config.geminiKey : config.pollinationsToken ? null : false,
-      role: 'Una ilustración estática por escena, con la hoja de personajes como referencia.',
-      missing: imageProviderName() === 'gemini'
-        ? (config.geminiKey ? 'Gemini Imagen puede requerir facturación activa en Google AI Studio; si no está disponible, el paso de imágenes mostrará el error de Google.' : 'Falta GEMINI_API_KEY.')
-        : config.pollinationsToken
-          ? 'Pollinations con token (modelo FLUX). La consistencia de personajes depende sólo del texto y la semilla.'
-          : 'Pollinations SIN token sólo ofrece el modelo «sana»: en pruebas reales no produce el estilo Stickman (dibujos abstractos). Añade GEMINI_API_KEY (recomendado) o POLLINATIONS_TOKEN (enter.pollinations.ai) para FLUX. Sin ello, la revisión de coherencia rechazará la mayoría de imágenes.',
+      ok: imageProviderName() === 'flow' ? null : imageProviderName() === 'gemini' ? !!config.geminiKey : config.pollinationsToken ? null : false,
+      role: imageProviderName() === 'flow'
+        ? 'Google Flow genera cada imagen dentro de tu sesión de Chrome mediante la extensión RaulitoShow IA (carpeta extension-flow/), que las devuelve a su escena.'
+        : 'Una ilustración estática por escena, con la hoja de personajes como referencia.',
+      missing: imageProviderName() === 'flow'
+        ? 'Instala la extensión de extension-flow/ en Chrome (chrome://extensions → Modo de desarrollador → Cargar descomprimida), abre Google Flow con tu cuenta y usa «Cargar escenas del proyecto». Alternativa sin extensión: descarga el TXT de prompts del proyecto y luego importa las imágenes escena_NNN.'
+        : imageProviderName() === 'gemini'
+          ? (config.geminiKey ? 'Gemini Imagen puede requerir facturación activa en Google AI Studio; si no está disponible, el paso de imágenes mostrará el error de Google.' : 'Falta GEMINI_API_KEY.')
+          : config.pollinationsToken
+            ? 'Pollinations con token (modelo FLUX). La consistencia de personajes depende sólo del texto y la semilla.'
+            : 'Pollinations SIN token sólo ofrece el modelo «sana»: en pruebas reales no produce el estilo Stickman (dibujos abstractos). Usa Flow (recomendado), GEMINI_API_KEY o POLLINATIONS_TOKEN.',
     },
     {
       id: 'tts', name: `Voz (${tts})`, ok: tts === 'edge' ? null : tts === 'gemini' ? !!config.geminiKey : !!(config.elevenKey && config.elevenVoice), test: 'tts',

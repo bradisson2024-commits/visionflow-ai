@@ -132,7 +132,10 @@ function analysisHtml(a) {
 }
 
 function sceneHtml(s) {
-  const img = s.image ? `<img src="${fileUrl(`imagenes/${s.id}.png`, s.image.fileHash)}" alt="Escena ${s.n}" loading="lazy">` : '<div class="noimg">Imagen pendiente</div>';
+  const flow = current.imageProvider === 'flow';
+  const ver = current.sceneFiles?.[s.n];
+  const img = ver ? `<img src="${fileUrl(`imagenes/${s.id}.png`, ver)}" alt="Escena ${s.n}" loading="lazy">` : `<div class="noimg">${flow ? 'Esperando imagen de Google Flow' : 'Imagen pendiente'}</div>`;
+  const queued = flow && current.flow?.pending?.includes(s.n) && ver;
   const r = REVIEW[s.review?.state];
   return `<div class="scene" data-n="${s.n}">
     <div class="n">${s.n}</div>
@@ -144,8 +147,9 @@ function sceneHtml(s) {
       ${s.audio ? `<audio controls preload="none" src="${fileUrl(`audio/${s.id}.wav`, s.audio.textHash)}"></audio>` : ''}
       <div class="actions">
         <button data-act="narration">Guardar narración</button>
-        ${s.image ? `<button data-act="approve">✔ Aprobar imagen</button><button data-act="reject">✘ Marcar para corregir</button>` : ''}
-        <button data-act="regen">↻ Regenerar imagen</button>
+        ${ver ? `<button data-act="approve">✔ Aprobar imagen</button><button data-act="reject">✘ Marcar para corregir</button>` : ''}
+        <button data-act="regen">${flow ? '↻ Pedir otra a Flow' : '↻ Regenerar imagen'}</button>
+        ${queued ? '<span class="badge b-warn">en la cola de Flow</span>' : ''}
       </div>
     </div>
     <div>${img}</div>
@@ -204,6 +208,21 @@ function renderProject(keepLog) {
 
   ${p.research ? `<div class="card"><h2>Fuentes (${p.research.sources.length})</h2><ol>${p.research.sources.map((s) => `<li><b>[${s.id}]</b> <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a> <span class="muted">${esc(s.origin)}</span></li>`).join('')}</ol></div>` : ''}
 
+  ${p.imageProvider === 'flow' && p.flow ? `<div class="card"><h2>Imágenes con Google Flow</h2>
+    <p><span class="badge ${p.flow.pending.length ? 'b-warn' : 'b-ok'}">${p.flow.received}/${p.flow.total} recibidas</span>
+      ${p.flow.pending.length ? `<span class="muted">Pendientes: escenas ${p.flow.pending.slice(0, 40).join(', ')}${p.flow.pending.length > 40 ? '…' : ''}</span>` : ''}
+      · Hoja de personajes: ${p.flow.sheet ? '✔' : 'pendiente'} · Miniatura: ${p.flow.thumb ? '✔' : 'pendiente (opcional)'}</p>
+    <ol class="muted" style="margin:6px 0 10px;padding-left:18px">
+      <li>En Chrome, abre <a href="https://flow.google.com/" target="_blank" rel="noopener">Google Flow</a> con tu cuenta y entra en un proyecto.</li>
+      <li>Abre el panel <b>RaulitoShow IA</b> (extensión de la carpeta <code>extension-flow/</code>), elige este proyecto y pulsa <b>CARGAR ESCENAS DEL PROYECTO</b> → <b>INICIAR</b>. La primera vez genera la hoja de personajes; vuelve a cargar para las escenas.</li>
+      <li>Cada imagen vuelve sola a su escena. Al terminar pulsa <b>GENERAR VIDEO COMPLETO</b>.</li>
+    </ol>
+    <div class="actions">
+      <a href="/api/projects/${p.id}/flow-prompts.txt"><button>Descargar prompts para Flow (TXT, línea N = escena N)</button></a>
+      <label class="muted">Importar imágenes descargadas (escena_NNN.png/jpg/webp): <input type="file" id="flowFiles" multiple accept="image/png,image/jpeg,image/webp"></label>
+      <span id="flowImportMsg" class="muted"></span>
+    </div></div>` : ''}
+
   ${p.scenes.length ? `<div class="card"><h2>Escenas: narración ↔ imagen (${p.scenes.length})</h2>
     <p class="muted">Cada fragmento de narración tiene una única imagen. Lo que se escucha a la izquierda es lo que se ve a la derecha. ${p.characters ? `Personajes fijos: ${p.characters.map((c) => esc(c.name)).join(', ')}.` : ''}</p>
     ${p.steps.imagenes.state !== 'pendiente' ? `<p><img src="${fileUrl('imagenes/personajes.png')}" alt="Hoja de personajes" style="max-width:420px;width:100%;border-radius:6px" onerror="this.remove()"></p>` : ''}
@@ -238,6 +257,23 @@ function bindProject() {
   $('#transcriptFile')?.addEventListener('change', async (e) => { const f = e.target.files[0]; if (f) $('#transcript').value = await f.text(); });
   $('#btnTranscript')?.addEventListener('click', async () => {
     try { current = await api(`/api/projects/${id}/transcript`, { method: 'POST', body: JSON.stringify({ text: $('#transcript').value }) }); toast('Transcripción guardada. Pulsa «GENERAR VIDEO COMPLETO» para analizarla.'); renderProject(true); } catch (e) { toast(e.message, 7000); }
+  });
+  $('#flowFiles')?.addEventListener('change', async (e) => {
+    const files = [...e.target.files];
+    const out = $('#flowImportMsg');
+    let ok = 0; const errs = [];
+    for (const f of files) {
+      out.textContent = `Importando ${f.name}…`;
+      try {
+        const r = await fetch(`/api/projects/${id}/flow-import?name=${encodeURIComponent(f.name.toLowerCase().replace(/\s*\(\d+\)(?=\.)/, ''))}`, { method: 'POST', body: f });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || r.status);
+        ok++;
+      } catch (err) { errs.push(`${f.name}: ${err.message}`); }
+    }
+    out.textContent = `${ok} imagen(es) importadas.${errs.length ? ' Errores: ' + errs.join(' · ') : ''}`;
+    current = await api(`/api/projects/${id}`); renderProject(true);
+    if (errs.length) toast(errs.join('\n'), 9000);
   });
   $('#scenes')?.addEventListener('click', async (e) => {
     const act = e.target.dataset?.act;
