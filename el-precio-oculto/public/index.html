@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El Precio Oculto · Viral Finder</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="tag">EL PRECIO OCULTO</span> Viral Finder <small>Módulo 13 · Replicador inteligente</small></div>
+  <nav>
+    <button data-tab="buscar" class="active">Buscador</button>
+    <button data-tab="proyectos">Proyectos</button>
+    <button data-tab="config">Configuración</button>
+  </nav>
+</header>
+
+<main>
+  <section id="tab-buscar" class="tab active">
+    <div class="card">
+      <h2>Buscar videos virales</h2>
+      <form id="searchForm" class="row">
+        <input id="q" placeholder="Tema: negocio oculto, McDonald's, supermercados, aerolíneas…" required>
+        <select id="days"><option value="7">7 días</option><option value="30" selected>30 días</option><option value="90">90 días</option><option value="365">1 año</option></select>
+        <select id="lang"><option value="es">Español</option><option value="en">Inglés</option></select>
+        <button class="primary">Buscar</button>
+      </form>
+      <p class="muted">Datos reales de YouTube Data API v3. Ordenados por vistas por día.</p>
+      <details class="paste">
+        <summary>¿Ya tienes el enlace? Pegar URL de YouTube</summary>
+        <form id="urlForm" class="row">
+          <input id="url" placeholder="https://www.youtube.com/watch?v=…" required>
+          <button class="primary">REPLICAR Y MEJORAR</button>
+        </form>
+      </details>
+    </div>
+    <div id="searchMsg"></div>
+    <div id="results" class="grid"></div>
+  </section>
+
+  <section id="tab-proyectos" class="tab">
+    <div class="card"><h2>Proyectos</h2><div id="projects"></div></div>
+  </section>
+
+  <section id="tab-proyecto" class="tab"><div id="project"></div></section>
+
+  <section id="tab-config" class="tab">
+    <div class="card">
+      <h2>Servicios conectados</h2>
+      <p class="muted">Las claves se configuran en el archivo <code>.env</code> (ver <code>.env.example</code>) y se reinicia la app. Nunca se envían al navegador.</p>
+      <div id="services"></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<script src="app.js" type="module"></script>
+</body>
+</html>

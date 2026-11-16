@@ -1,0 +1,18 @@
+{
+  "name": "el-precio-oculto-viral-finder",
+  "version": "1.13.0",
+  "private": true,
+  "description": "El Precio Oculto · Viral Finder — Módulo 13: Replicador inteligente de videos virales y generador de videos terminados",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "msedge-tts": "2.1.1"
+  }
+}

@@ -1,0 +1,4 @@
+Coloca aquí pistas instrumentales (.mp3, .wav, .m4a, .ogg) con licencia que te permita usarlas en YouTube
+(por ejemplo, descargadas de la Biblioteca de audio de YouTube Studio).
+La herramienta elegirá una al montar el video. Si esta carpeta está vacía, la herramienta compone una pista
+ambiental instrumental original con FFmpeg (acordes sintetizados) y lo indica en el informe del proyecto.
