@@ -159,7 +159,7 @@ try {
   await page.locator('.modal .choice', { hasText: 'Kore' }).getByRole('button', { name: 'Seleccionar' }).click();
   await shot('10-crear-inspirado');
   await page.getByRole('button', { name: 'Crear vídeo', exact: true }).click();
-  await waitText('Inspirado en:');
+  await waitText('Análisis de la fuente');
   await idle(600000);
   await page.reload();
   await page.locator('.tabs button', { hasText: 'Edición' }).click();
