@@ -1,0 +1,25 @@
+{
+  "name": "cenit-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cenit Studio: análisis de YouTube, Radar Viral, Radar de Canales e investigación semanal, y generador de vídeos con IA (guion, escenas, personajes, voz, subtítulos, música y MP4).",
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "migrate": "node server/db/migrate.js",
+    "start": "node server/main.js",
+    "worker": "node server/worker.js",
+    "dev": "node --watch server/main.js",
+    "build": "npm --prefix web run build",
+    "test": "node --test --test-concurrency=1 \"tests/*.test.js\""
+  },
+  "dependencies": {
+    "@fastify/multipart": "10.1.9",
+    "@fastify/static": "10.1.11",
+    "fastify": "5.12.8",
+    "jose": "6.2.17",
+    "msedge-tts": "2.1.1",
+    "postgres": "4.1.1",
+    "zod": "4.6.7"
+  }
+}
