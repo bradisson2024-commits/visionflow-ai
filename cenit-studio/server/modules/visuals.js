@@ -96,19 +96,9 @@ export async function uploadSceneImage(user, projectId, sceneId, buffer) {
   return { ok: true };
 }
 
-/** Prompt completo de la escena (el mismo que se enviaría al generador), para usarlo en otra herramienta. */
-export async function scenePrompt(user, projectId, sceneId) {
-  const p = await own(user, projectId);
-  const [s] = await sql`select * from scenes where id = ${sceneId} and project_id = ${p.id}`;
-  if (!s) throw new AppError(404, 'Escena no encontrada');
-  const style = await getStyle(p.style_id);
-  const cast = await sql`select * from characters where project_id = ${p.id}`;
-  return { prompt: buildScenePrompt({ project: p, style, scene: s, cast }) };
-}
-
 // ------------------------------------------------------------------ Google Flow
-// Prompts en inglés para generar en Google Flow (con la cuenta del usuario, mediante la extensión «Cenit · Flow»).
-// Cada elemento lleva la ruta donde la extensión sube la imagen resultante.
+// Prompts en inglés para crear las imágenes en Google Flow con la cuenta del usuario; la imagen se sube después
+// con «Subir imagen» (la ruta de subida va en cada elemento).
 const IDS = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const english = new Map(); // caché de traducciones (texto original → inglés)
 const refPrompt = (c, style) => `Character reference sheet of ${castLine(c)}. Full body, front view and three-quarter view side by side, neutral pose, plain light background, clear details of face, body shape, clothing colors and accessories. ${stylePrompt(style)}. Square image.`;
