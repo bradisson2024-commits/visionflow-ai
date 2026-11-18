@@ -4,7 +4,7 @@
 import { useEffect } from 'react';
 import { api, token } from './api.js';
 
-export const FLOW_URL = 'https://labs.google/fx/tools/flow';
+export const FLOW_URL = 'https://flow.google.com/';
 export const flowInstalled = () => document.documentElement.dataset.cenitFlow === '1';
 
 export async function sendToFlow(p, { sceneIds = [], charIds = [] }) {

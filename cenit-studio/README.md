@@ -133,7 +133,7 @@ Para comprobarlos usa «Probar conexión real» en Ajustes.
 Si tu clave de Gemini no tiene facturación, Google no genera imágenes por API. Usa Google Flow:
 
 1. En Chrome abre `chrome://extensions`, activa **Modo de desarrollador** → **Cargar descomprimida** → elige la carpeta `cenit-studio/extension-flow`.
-2. Abre Google Flow (`labs.google/fx/tools/flow`), inicia sesión, crea un proyecto y elige crear **imágenes**.
+2. Abre Google Flow (`flow.google.com`), inicia sesión, crea un proyecto y elige crear **imágenes**.
 3. En Cenit pulsa **Flow** (en una escena o un personaje), **Todas en Flow** o **Referencias en Flow**. La app traduce los prompts al inglés, la extensión los escribe en Flow y sube cada imagen a su escena o personaje.
 
 Sin la extensión, el botón **Flow** copia el prompt en inglés y abre Flow; luego usa **Subir imagen**.

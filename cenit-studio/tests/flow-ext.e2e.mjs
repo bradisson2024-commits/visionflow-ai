@@ -1,5 +1,5 @@
 // Prueba de la extensión «Cenit · Flow» con Chromium real, la app real y una página que imita a Google Flow
-// (Google Flow real necesita una cuenta: aquí se sustituye por un doble servido en labs.google mediante enrutado).
+// (Google Flow real necesita una cuenta: aquí se sustituye por un doble servido en flow.google.com mediante enrutado).
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -38,7 +38,7 @@ document.querySelector('button').onclick = () => { const t = document.querySelec
 </script></body></html>`;
 const ext = path.resolve('extension-flow');
 const ctx = await chromium.launchPersistentContext(fs.mkdtempSync(path.join(os.tmpdir(), 'cenit-prof-')), { channel: 'chromium', headless: true, args: [`--disable-extensions-except=${ext}`, `--load-extension=${ext}`] });
-await ctx.route('https://labs.google/**', async (route) => {
+await ctx.route('https://flow.google.com/**', async (route) => {
   const u = new URL(route.request().url());
   if (u.pathname.startsWith('/fx/media/')) {
     const f = path.join(os.tmpdir(), `flow-img-${++n}.png`);
@@ -68,7 +68,7 @@ await page.getByRole('button', { name: 'Flow', exact: true }).first().click(); /
 let ref = null;
 for (let i = 0; i < 40 && !ref; i++) { [{ ref_path: ref }] = await sql`select ref_path from characters where id = ${ch.id}`; await new Promise((r) => setTimeout(r, 1000)); }
 console.log('referencia del personaje:', ref ? 'sí' : 'no');
-const flowPage = ctx.pages().find((x) => x.url().startsWith('https://labs.google'));
+const flowPage = ctx.pages().find((x) => x.url().startsWith('https://flow.google.com'));
 const prompts = flowPage ? await flowPage.evaluate(() => window.prompts) : [];
 console.log('prompts recibidos por Flow:', prompts.length, '\n  ej.:', (prompts[0] || '').slice(0, 160));
 const [img] = await sql`select image_path from scenes where project_id = ${p.id} and idx = 1`;

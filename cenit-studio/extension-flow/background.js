@@ -1,6 +1,7 @@
 // Cola de la extensión «Cenit · Flow»: recibe prompts de Cenit Studio, los genera uno a uno en la pestaña de
 // Google Flow y sube cada imagen a su escena o personaje en Cenit.
-const FLOW_URL = 'https://labs.google/fx/tools/flow';
+const FLOW_URL = 'https://flow.google.com/';
+const FLOW_TABS = ['https://flow.google.com/*', 'https://labs.google/fx/*'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let queue = [];
 let running = false;
@@ -26,7 +27,7 @@ async function ensureScript(tabId) {
   return r;
 }
 async function flowTab() {
-  const tabs = (await chrome.tabs.query({ url: ['https://labs.google/fx/*'] })).sort((a, b) => (b.active - a.active) || ((b.lastAccessed || 0) - (a.lastAccessed || 0)));
+  const tabs = (await chrome.tabs.query({ url: FLOW_TABS })).sort((a, b) => (b.active - a.active) || ((b.lastAccessed || 0) - (a.lastAccessed || 0)));
   for (const t of tabs) { const r = await ensureScript(t.id); if (r?.prompt) return t; }
   if (tabs[0]) return tabs[0];
   const t = await chrome.tabs.create({ url: FLOW_URL, active: true });
