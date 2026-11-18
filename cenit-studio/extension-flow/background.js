@@ -63,6 +63,7 @@ async function run() {
     while (queue.length) {
       const it = queue[0];
       const tab = await flowTab();
+      send(tab.id, { cmd: 'status', text: `recibido de Cenit: ${it.label} (${queue.length} en cola)` });
       const st = await ready(tab.id);
       if (!st?.prompt || st.blocker) {
         notify({ status: 'error', message: st?.blocker || 'Google Flow no está listo: abre un proyecto en Flow, elige imágenes y vuelve a pulsar «Flow».' });
@@ -82,6 +83,7 @@ async function run() {
         const res = await fetch(`${ctx.base}${it.upload}`, { method: 'POST', headers: { authorization: `Bearer ${ctx.token}` }, body: fd });
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Cenit respondió ${res.status}`);
         notify({ status: 'lista', id: it.id, message: `${it.label}: imagen de Flow guardada.` });
+        send(tab.id, { cmd: 'status', text: `${it.label} guardada en Cenit ✔` });
       } catch (e) {
         notify({ status: 'error', id: it.id, message: `${it.label}: ${e.message}` });
       }

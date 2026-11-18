@@ -5,6 +5,19 @@
   window.__cenitFlow = true;
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  /** Cartel visible en Flow con el paso actual, para que el usuario (y el soporte) vea dónde se detiene. */
+  function status(text, bad = false) {
+    let el = document.getElementById('cenit-flow-status');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'cenit-flow-status';
+      el.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;padding:10px 16px;border-radius:10px;font:600 14px system-ui,sans-serif;color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.4);max-width:80vw;pointer-events:none';
+      document.documentElement.appendChild(el);
+    }
+    el.style.background = bad ? '#b91c1c' : '#047857';
+    el.textContent = `Cenit · Flow: ${text}`;
+    console.log('[Cenit · Flow]', text);
+  }
   const visible = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width > 4 && r.height > 4 && s.visibility !== 'hidden' && s.display !== 'none'; };
   const label = (el) => `${el.getAttribute('aria-label') || ''} ${el.getAttribute('title') || ''} ${el.textContent || ''}`.toLowerCase().replace(/\s+/g, ' ').trim();
 
@@ -16,24 +29,45 @@
     return null;
   }
 
-  /** Cuadro de prompt: el editor de texto visible más grande. */
+  /** Cuadro de prompt: el editor visible cuyo texto de ayuda habla de crear/describir; si no, el más cercano a un
+   *  botón de enviar; si no, el más grande. */
+  const HELP = /(what do you want|create|crear|describe|prompt|imagina|imagine)/i;
+  function helpText(el) {
+    const own = `${el.getAttribute('placeholder') || ''} ${el.getAttribute('aria-label') || ''} ${el.getAttribute('aria-placeholder') || ''} ${el.dataset?.placeholder || ''}`;
+    const box = el.closest('form, [class*="prompt" i], [class*="input" i]') || el.parentElement?.parentElement;
+    return `${own} ${box ? box.innerText.slice(0, 200) : ''}`;
+  }
   function promptBox() {
-    const c = [...document.querySelectorAll('textarea, [contenteditable="true"], [role="textbox"]')].filter(visible);
+    const c = [...document.querySelectorAll('textarea, [contenteditable="true"], [contenteditable="plaintext-only"], [role="textbox"]')]
+      .filter((e) => visible(e) && !e.closest('#cenit-flow-status') && !/search|buscar/i.test(`${e.getAttribute('aria-label') || ''} ${e.getAttribute('placeholder') || ''}`));
+    if (!c.length) return null;
+    const helped = c.filter((e) => HELP.test(helpText(e)));
+    const pool = helped.length ? helped : c;
     const area = (e) => { const r = e.getBoundingClientRect(); return r.width * r.height; };
-    return c.sort((a, b) => area(b) - area(a))[0] || null;
+    return pool.sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top || area(b) - area(a))[0];
   }
 
-  function writePrompt(box, text) {
-    box.focus();
+  const textOf = (box) => (box.value ?? box.innerText ?? box.textContent ?? '').trim();
+  async function writePrompt(box, text) {
+    box.click(); box.focus();
     if (box.tagName === 'TEXTAREA' || box.tagName === 'INPUT') {
       Object.getOwnPropertyDescriptor(Object.getPrototypeOf(box), 'value').set.call(box, text);
       box.dispatchEvent(new Event('input', { bubbles: true }));
       box.dispatchEvent(new Event('change', { bubbles: true }));
-    } else {
-      document.getSelection().selectAllChildren(box);
-      if (!document.execCommand('insertText', false, text)) { box.textContent = text; box.dispatchEvent(new InputEvent('input', { bubbles: true, data: text })); }
+      return textOf(box).length > 0;
     }
-    return (box.value ?? box.textContent).trim().length > 0;
+    document.getSelection().selectAllChildren(box);
+    document.execCommand('insertText', false, text);
+    await sleep(300);
+    if (textOf(box).length > 10) return true;
+    // Editores que ignoran insertText: se simula «pegar».
+    const dt = new DataTransfer(); dt.setData('text/plain', text);
+    box.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+    await sleep(300);
+    if (textOf(box).length > 10) return true;
+    box.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertText', data: text, bubbles: true, cancelable: true }));
+    await sleep(300);
+    return textOf(box).length > 10;
   }
 
   const dist = (el, br) => { const r = el.getBoundingClientRect(); return Math.hypot(r.left - br.right, r.top - br.bottom); };
@@ -52,40 +86,47 @@
   }
 
   async function generate({ prompt, timeout = 240000 }) {
+    const fail = (error, extra = {}) => { status(error, true); return { ok: false, error, ...extra }; };
     const stop = blocker();
-    if (stop) return { ok: false, error: stop, blocker: true };
+    if (stop) return fail(stop, { blocker: true });
+    status('buscando el cuadro de texto…');
     const box = promptBox();
-    if (!box) return { ok: false, error: 'No encuentro el cuadro de texto de Google Flow. Abre un proyecto en Flow, elige crear imágenes y vuelve a pulsar «Flow».', blocker: true };
+    if (!box) return fail('no encuentro el cuadro de texto de Google Flow. Abre un proyecto en Flow y vuelve a pulsar «Flow».', { blocker: true });
     const before = new Set(bigImages().map(key));
-    if (!writePrompt(box, prompt)) return { ok: false, error: 'No se pudo escribir el prompt en Google Flow.' };
-    await sleep(500);
+    status('escribiendo el prompt…');
+    if (!(await writePrompt(box, prompt))) return fail(`no pude escribir en el cuadro de texto (${box.tagName.toLowerCase()}). Mándale una foto de esto al soporte.`);
+    await sleep(700);
     const btn = submitButton(box);
+    status(btn ? 'pulsando generar…' : 'no veo el botón de generar: pruebo con Enter…');
     if (btn) btn.click();
     else box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+    status('esperando la imagen de Flow…');
     const t0 = Date.now();
     let found = null, seenAt = 0;
     while (Date.now() - t0 < timeout) {
       await sleep(1500);
       const b = blocker();
-      if (b) return { ok: false, error: b, blocker: true };
+      if (b) return fail(b, { blocker: true });
       const fresh = bigImages().filter((i) => !before.has(key(i)));
       if (fresh.length) {
         const k = key(fresh[0]);
         if (found !== k) { found = k; seenAt = Date.now(); }
         else if (Date.now() - seenAt > 2500) { // estable: no es una vista previa a medio cargar
+          status('imagen lista, enviándola a Cenit…');
           const out = { ok: true, src: k };
           try { if (/^(blob:|data:)/.test(k) || new URL(k, location.href).origin === location.origin) out.dataUrl = await asDataUrl(k); } catch { /* la descarga la intenta la extensión */ }
           return out;
         }
       }
       const err = [...document.querySelectorAll('[role="alert"], [aria-live="assertive"]')].map((e) => e.innerText.trim()).find((t) => /(error|failed|couldn.t|no se pudo|inténtalo|try again|policy|política)/i.test(t));
-      if (err && Date.now() - t0 > 3000) return { ok: false, error: `Google Flow informó: ${err.slice(0, 200)}` };
+      if (err && Date.now() - t0 > 3000) return fail(`Google Flow informó: ${err.slice(0, 200)}`);
     }
-    return { ok: false, error: `Google Flow no entregó una imagen en ${Math.round(timeout / 60000)} min. ¿Está Flow en modo imagen?` };
+    return fail(`Google Flow no entregó una imagen en ${Math.round(timeout / 60000)} min. ¿Está Flow en modo imagen?`);
   }
 
   chrome.runtime.onMessage.addListener((msg, _s, reply) => {
     if (msg?.cmd === 'ping') { reply({ ok: true, prompt: !!promptBox(), blocker: blocker() }); return false; }
+    if (msg?.cmd === 'status') { status(msg.text, msg.bad); reply({ ok: true }); return false; }
     if (msg?.cmd === 'generate') { generate(msg).then(reply, (e) => reply({ ok: false, error: e.message })); return true; }
     return false;
   });

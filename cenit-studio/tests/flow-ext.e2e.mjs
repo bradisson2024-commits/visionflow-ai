@@ -30,10 +30,13 @@ const [ch] = await sql`insert into characters(project_id, name, kind, descriptio
 
 // Página doble de Google Flow: cuadro de prompt + botón; al generar añade una imagen nueva servida desde su origen.
 let n = 0;
-const flowHtml = `<!doctype html><html><body><h1>Flow</h1><textarea style="width:600px;height:120px"></textarea>
-<button aria-label="Create">arrow_forward</button><div id="out"></div><script>
+const flowHtml = `<!doctype html><html><body style="background:#111;color:#eee"><input placeholder="Search" style="width:700px;height:40px">
+<div style="position:fixed;bottom:20px;left:40px;width:800px"><div style="position:relative"><div class="ph" style="position:absolute;opacity:.5;pointer-events:none">What do you want to create?</div>
+<div contenteditable="true" style="min-height:24px"></div></div><button aria-label="Create"><i>arrow_forward</i></button></div><div id="out"></div><script>
 let k = 0; window.prompts = [];
-document.querySelector('button').onclick = () => { const t = document.querySelector('textarea').value; window.prompts.push(t);
+const ed = document.querySelector('[contenteditable]');
+ed.addEventListener('input', () => { document.querySelector('.ph').style.display = ed.innerText.trim() ? 'none' : ''; });
+document.querySelector('button').onclick = () => { const t = ed.innerText.trim(); if (!t) return; window.prompts.push(t); ed.innerText = '';
   setTimeout(() => { const i = document.createElement('img'); i.src = '/fx/media/' + (++k) + '.png'; document.getElementById('out').prepend(i); }, 1200); };
 </script></body></html>`;
 const ext = path.resolve('extension-flow');
