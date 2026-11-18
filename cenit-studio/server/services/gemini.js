@@ -6,7 +6,7 @@ import { call, sleep } from '../core/http.js';
 import { ServiceError } from '../core/errors.js';
 import { getSetting } from '../modules/settings.js';
 
-export const MODELS = { text: 'gemini-2.5-flash', pro: 'gemini-2.5-pro', image: 'gemini-2.5-flash-image', tts: 'gemini-2.5-flash-preview-tts', veo: 'veo-3.0-fast-generate-001' };
+export const MODELS = { text: 'gemini-3.8-flash', pro: 'gemini-3.8-flash', image: 'gemini-2.5-flash-image', tts: 'gemini-2.5-flash-preview-tts', veo: 'veo-3.0-fast-generate-001' };
 const model = async (k) => (await getSetting(`model.${k}`)) || MODELS[k];
 
 function headers() {

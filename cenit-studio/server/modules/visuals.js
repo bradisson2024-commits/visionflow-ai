@@ -84,6 +84,28 @@ defineJob('escena.imagen', async (job) => {
   }
 }, { concurrency: 2 });
 
+/** Imagen propia para una escena (hecha fuera de la app, p. ej. en Google Flow): se ajusta al formato del proyecto. */
+export async function uploadSceneImage(user, projectId, sceneId, buffer) {
+  const p = await own(user, projectId);
+  const [s] = await sql`select * from scenes where id = ${sceneId} and project_id = ${p.id}`;
+  if (!s) throw new AppError(404, 'Escena no encontrada');
+  let key;
+  try { key = await normalize(buffer, p, `proyectos/${p.id}/escenas/${s.id}-${Date.now()}.png`); } catch { throw new AppError(400, 'El archivo no es una imagen válida.'); }
+  await sql`update scenes set image_path = ${key}, image_status = 'lista', image_error = null, anim_status = 'pendiente', anim_path = null where id = ${s.id}`;
+  emit(p.owner_id, 'scene', { projectId: p.id, sceneId: s.id });
+  return { ok: true };
+}
+
+/** Prompt completo de la escena (el mismo que se enviaría al generador), para usarlo en otra herramienta. */
+export async function scenePrompt(user, projectId, sceneId) {
+  const p = await own(user, projectId);
+  const [s] = await sql`select * from scenes where id = ${sceneId} and project_id = ${p.id}`;
+  if (!s) throw new AppError(404, 'Escena no encontrada');
+  const style = await getStyle(p.style_id);
+  const cast = await sql`select * from characters where project_id = ${p.id}`;
+  return { prompt: buildScenePrompt({ project: p, style, scene: s, cast }) };
+}
+
 // ------------------------------------------------------------------ reparto
 export async function generateReference(user, projectId, charId) {
   const p = await own(user, projectId);

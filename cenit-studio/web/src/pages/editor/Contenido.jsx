@@ -112,6 +112,13 @@ function SceneCard({ p, s, reload, cast }) {
         <button className="btn sm" onClick={() => { setForm({ image_prompt: s.image_prompt, visual: s.visual, character_ids: s.character_ids || [] }); setImg(true); }}>Prompt Img</button>
         <button className="btn sm" onClick={() => { setForm({ anim_prompt: s.anim_prompt, mode: s.anim_mode === 'ninguna' ? 'camara' : s.anim_mode }); setAnim(true); }}>Prompt anim</button>
         <Action className="btn sm primary" busyText="En cola…" run={async () => { await api(`/api/proyectos/${p.id}/imagenes`, { method: 'POST', body: { sceneIds: [s.id] } }); await reload(); }}>{s.image_status === 'error' ? 'Reintentar' : s.image_path ? 'Regenerar' : 'Generar'}</Action>
+        <Action className="btn sm" title="Copia el prompt completo (con estilo y reparto) para crear la imagen en Google Flow u otra herramienta" run={async () => { const r = await api(`/api/proyectos/${p.id}/escenas/${s.id}/prompt`); try { await navigator.clipboard.writeText(r.prompt); return 'Prompt copiado. Pégalo en Google Flow.'; } catch { window.prompt('Copia el prompt:', r.prompt); } }}>Copiar prompt</Action>
+        <label className="btn sm" title="Sube una imagen hecha por ti (Google Flow, Gemini…). Se ajusta al formato del vídeo.">Subir imagen<input type="file" accept="image/*" hidden onChange={async (e) => {
+          const f = e.target.files[0]; e.target.value = '';
+          if (!f) return;
+          const fd = new FormData(); fd.append('file', f);
+          try { await api(`/api/proyectos/${p.id}/escenas/${s.id}/imagen`, { method: 'POST', form: fd }); await reload(); toast('Imagen subida.'); } catch (err) { toast(err.message, true); }
+        }} /></label>
       </div>
       {img && (
         <Modal title={`Escena ${s.idx} · Prompt de imagen`} onClose={() => setImg(false)}>
