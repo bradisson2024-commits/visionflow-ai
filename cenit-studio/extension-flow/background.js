@@ -18,9 +18,17 @@ function badge() { chrome.action.setBadgeText({ text: queue.length ? String(queu
 function notify(d) { badge(); if (ctx) chrome.tabs.sendMessage(ctx.tabId, { type: 'flow:progress', ...d }).catch(() => {}); }
 const send = (tabId, m) => chrome.tabs.sendMessage(tabId, m).catch(() => null);
 
+/** Pestaña de Google Flow lista: prefiere la que responde con el cuadro de prompt; si una pestaña se abrió antes de
+ *  instalar o actualizar la extensión, le inyecta el script. Si no hay ninguna, abre Flow. */
+async function ensureScript(tabId) {
+  let r = await send(tabId, { cmd: 'ping' });
+  if (!r) { try { await chrome.scripting.executeScript({ target: { tabId }, files: ['flow-page.js'] }); } catch { return null; } r = await send(tabId, { cmd: 'ping' }); }
+  return r;
+}
 async function flowTab() {
-  const [tab] = await chrome.tabs.query({ url: ['https://labs.google/fx/*'] });
-  if (tab) return tab;
+  const tabs = (await chrome.tabs.query({ url: ['https://labs.google/fx/*'] })).sort((a, b) => (b.active - a.active) || ((b.lastAccessed || 0) - (a.lastAccessed || 0)));
+  for (const t of tabs) { const r = await ensureScript(t.id); if (r?.prompt) return t; }
+  if (tabs[0]) return tabs[0];
   const t = await chrome.tabs.create({ url: FLOW_URL, active: true });
   for (let i = 0; i < 60; i++) { await sleep(1000); const c = await chrome.tabs.get(t.id); if (c.status === 'complete') break; }
   return chrome.tabs.get(t.id);
@@ -30,7 +38,7 @@ async function flowTab() {
 async function ready(tabId) {
   let last = null;
   for (let i = 0; i < 90; i++) {
-    last = await send(tabId, { cmd: 'ping' });
+    last = await ensureScript(tabId);
     if (last?.blocker) return last;
     if (last?.prompt) return last;
     if (i === 3) notify({ status: 'aviso', message: 'En la pestaña de Google Flow abre un proyecto («Nuevo proyecto») y elige crear imágenes. La extensión empezará sola.' });
@@ -59,6 +67,7 @@ async function run() {
         notify({ status: 'error', message: st?.blocker || 'Google Flow no está listo: abre un proyecto en Flow, elige imágenes y vuelve a pulsar «Flow».' });
         queue = []; break;
       }
+      await chrome.tabs.update(tab.id, { active: true }).catch(() => {});
       notify({ status: 'generando', id: it.id, message: `Google Flow: creando ${it.label}…` });
       const r = await send(tab.id, { cmd: 'generate', prompt: it.prompt, timeout: 240000 });
       if (!r?.ok) {
