@@ -40,6 +40,7 @@ async function ready(tabId) {
   let last = null;
   for (let i = 0; i < 90; i++) {
     last = await ensureScript(tabId);
+    if (last && !last.prompt && !last.blocker) last = await send(tabId, { cmd: 'ping', wait: i + 1 }) || last;
     if (last?.blocker) return last;
     if (last?.prompt) return last;
     if (i === 3) notify({ status: 'aviso', message: 'En la pestaña de Google Flow abre un proyecto («Nuevo proyecto») y elige crear imágenes. La extensión empezará sola.' });

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cenit · Flow",
   "short_name": "Cenit Flow",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Cenit Studio: envía los prompts (en inglés) de tus escenas y personajes a Google Flow y devuelve cada imagen a su sitio.",
   "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" },
   "action": { "default_title": "Cenit · Flow", "default_icon": { "16": "icons/16.png", "48": "icons/48.png" } },

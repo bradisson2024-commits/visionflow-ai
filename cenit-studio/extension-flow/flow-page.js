@@ -29,22 +29,57 @@
     return null;
   }
 
-  /** Cuadro de prompt: el editor visible cuyo texto de ayuda habla de crear/describir; si no, el más cercano a un
-   *  botón de enviar; si no, el más grande. */
-  const HELP = /(what do you want|create|crear|describe|prompt|imagina|imagine)/i;
+  /** Busca también dentro de componentes con «shadow DOM». */
+  function deepAll(sel, root = document, out = []) {
+    out.push(...root.querySelectorAll(sel));
+    for (const el of root.querySelectorAll('*')) if (el.shadowRoot) deepAll(sel, el.shadowRoot, out);
+    return out;
+  }
+  const editable = (e) => e && (e.tagName === 'TEXTAREA' || (e.tagName === 'INPUT' && /^(text|search|)$/i.test(e.type || '')) || e.isContentEditable);
+  const deepActive = () => { let a = document.activeElement; while (a?.shadowRoot?.activeElement) a = a.shadowRoot.activeElement; return a; };
+
+  /** Cuadro de prompt: el editor visible cuyo texto de ayuda habla de crear; si no, el más bajo y grande. */
+  const HELP = /(what do you want|qué quieres crear|create|crear|describe|prompt|imagina|imagine)/i;
   function helpText(el) {
     const own = `${el.getAttribute('placeholder') || ''} ${el.getAttribute('aria-label') || ''} ${el.getAttribute('aria-placeholder') || ''} ${el.dataset?.placeholder || ''}`;
-    const box = el.closest('form, [class*="prompt" i], [class*="input" i]') || el.parentElement?.parentElement;
-    return `${own} ${box ? box.innerText.slice(0, 200) : ''}`;
+    const box = el.parentElement?.parentElement?.parentElement;
+    return `${own} ${box ? box.textContent.slice(0, 300) : ''}`;
+  }
+  const isSearch = (e) => /search|buscar/i.test(`${e.getAttribute('aria-label') || ''} ${e.getAttribute('placeholder') || ''} ${e.type || ''}`);
+  function candidates() {
+    return deepAll('textarea, input, [contenteditable], [role="textbox"]')
+      .filter((e) => editable(e) || e.getAttribute('role') === 'textbox')
+      .filter((e) => { const r = e.getBoundingClientRect(); return r.width > 40 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; })
+      .filter((e) => !isSearch(e) && !e.closest('#cenit-flow-status'));
   }
   function promptBox() {
-    const c = [...document.querySelectorAll('textarea, [contenteditable="true"], [contenteditable="plaintext-only"], [role="textbox"]')]
-      .filter((e) => visible(e) && !e.closest('#cenit-flow-status') && !/search|buscar/i.test(`${e.getAttribute('aria-label') || ''} ${e.getAttribute('placeholder') || ''}`));
+    const c = candidates();
     if (!c.length) return null;
     const helped = c.filter((e) => HELP.test(helpText(e)));
     const pool = helped.length ? helped : c;
-    const area = (e) => { const r = e.getBoundingClientRect(); return r.width * r.height; };
-    return pool.sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top || area(b) - area(a))[0];
+    return pool.sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)[0];
+  }
+  /** Si el editor sólo aparece al pulsar el texto de ayuda («¿Qué quieres crear?»), lo pulsa y usa el que recibe el foco. */
+  async function activatePrompt() {
+    let box = promptBox();
+    if (box) return box;
+    const hint = deepAll('div, span, p, label').filter((e) => visible(e) && e.children.length === 0 && /(qué quieres crear|what do you want to create)/i.test(e.textContent || ''))[0];
+    if (!hint) return null;
+    for (const target of [hint, hint.parentElement, hint.parentElement?.parentElement]) {
+      if (!target) continue;
+      target.click();
+      target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      await sleep(400);
+      const a = deepActive();
+      if (editable(a) && !isSearch(a)) return a;
+      box = promptBox();
+      if (box) return box;
+    }
+    return null;
+  }
+  function diag() {
+    return `cuadros de texto: ${deepAll('textarea').length}, editables: ${deepAll('[contenteditable]').length}, role=textbox: ${deepAll('[role="textbox"]').length}, iframes: ${document.querySelectorAll('iframe').length}`;
   }
 
   const textOf = (box) => (box.value ?? box.innerText ?? box.textContent ?? '').trim();
@@ -90,8 +125,8 @@
     const stop = blocker();
     if (stop) return fail(stop, { blocker: true });
     status('buscando el cuadro de texto…');
-    const box = promptBox();
-    if (!box) return fail('no encuentro el cuadro de texto de Google Flow. Abre un proyecto en Flow y vuelve a pulsar «Flow».', { blocker: true });
+    const box = await activatePrompt();
+    if (!box) return fail(`no encuentro el cuadro de texto de Google Flow (${diag()}). Mándale una foto de esto al soporte.`, { blocker: true });
     const before = new Set(bigImages().map(key));
     status('escribiendo el prompt…');
     if (!(await writePrompt(box, prompt))) return fail(`no pude escribir en el cuadro de texto (${box.tagName.toLowerCase()}). Mándale una foto de esto al soporte.`);
@@ -125,7 +160,13 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, _s, reply) => {
-    if (msg?.cmd === 'ping') { reply({ ok: true, prompt: !!promptBox(), blocker: blocker() }); return false; }
+    if (msg?.cmd === 'ping') {
+      activatePrompt().then((box) => {
+        if (!box && msg.wait) status(`buscando el cuadro «¿Qué quieres crear?»… (${diag()})`, msg.wait > 3);
+        reply({ ok: true, prompt: !!box, blocker: blocker() });
+      }, () => reply({ ok: true, prompt: false, blocker: blocker() }));
+      return true;
+    }
     if (msg?.cmd === 'status') { status(msg.text, msg.bad); reply({ ok: true }); return false; }
     if (msg?.cmd === 'generate') { generate(msg).then(reply, (e) => reply({ ok: false, error: e.message })); return true; }
     return false;

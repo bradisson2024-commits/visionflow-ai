@@ -32,7 +32,7 @@ const [ch] = await sql`insert into characters(project_id, name, kind, descriptio
 let n = 0;
 const flowHtml = `<!doctype html><html><body style="background:#111;color:#eee"><input placeholder="Search" style="width:700px;height:40px">
 <div style="position:fixed;bottom:20px;left:40px;width:800px"><div style="position:relative"><div class="ph" style="position:absolute;opacity:.5;pointer-events:none">What do you want to create?</div>
-<div contenteditable="true" style="min-height:24px"></div></div><button aria-label="Create"><i>arrow_forward</i></button></div><div id="out"></div><script>
+<div contenteditable style="min-height:24px"></div></div><button aria-label="Create"><i>arrow_forward</i></button></div><div id="out"></div><script>
 let k = 0; window.prompts = [];
 const ed = document.querySelector('[contenteditable]');
 ed.addEventListener('input', () => { document.querySelector('.ph').style.display = ed.innerText.trim() ? 'none' : ''; });
