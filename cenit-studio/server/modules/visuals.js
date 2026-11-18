@@ -106,6 +106,46 @@ export async function scenePrompt(user, projectId, sceneId) {
   return { prompt: buildScenePrompt({ project: p, style, scene: s, cast }) };
 }
 
+// ------------------------------------------------------------------ Google Flow
+// Prompts en inglés para generar en Google Flow (con la cuenta del usuario, mediante la extensión «Cenit · Flow»).
+// Cada elemento lleva la ruta donde la extensión sube la imagen resultante.
+const IDS = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const english = new Map(); // caché de traducciones (texto original → inglés)
+const refPrompt = (c, style) => `Character reference sheet of ${castLine(c)}. Full body, front view and three-quarter view side by side, neutral pose, plain light background, clear details of face, body shape, clothing colors and accessories. ${stylePrompt(style)}. Square image.`;
+
+async function toEnglish(texts) {
+  const todo = [...new Set(texts.filter((t) => !english.has(t)))];
+  for (let i = 0; i < todo.length; i += 20) {
+    const chunk = todo.slice(i, i + 20);
+    try {
+      const r = await gemini.ask({
+        json: true, temperature: 0.2,
+        system: 'You translate image-generation prompts into natural, fluent English for an image model. Keep every visual detail, proper names, colors, style and composition instructions. Do not add or remove content. Output only a JSON array of strings, same order and length as the input.',
+        prompt: JSON.stringify(chunk),
+      });
+      if (Array.isArray(r.data) && r.data.length === chunk.length) chunk.forEach((t, k) => english.set(t, String(r.data[k] || t)));
+    } catch { /* sin traducción: se usa el texto original */ }
+  }
+  return texts.map((t) => ({ prompt: english.get(t) || t, translated: english.has(t) }));
+}
+
+export async function flowPrompts(user, projectId, { sceneIds = [], charIds = [] } = {}) {
+  const p = await own(user, projectId);
+  const style = await getStyle(p.style_id);
+  const cast = await sql`select * from characters where project_id = ${p.id}`;
+  const items = [];
+  const cids = (charIds || []).filter((x) => IDS.test(String(x)));
+  for (const c of cast.filter((x) => cids.includes(x.id))) items.push({ kind: 'personaje', id: c.id, label: c.name, aspect: '1:1', text: refPrompt(c, style), upload: `/api/proyectos/${p.id}/reparto/${c.id}/subir` });
+  const sids = (sceneIds || []).filter((x) => IDS.test(String(x)));
+  if (sids.length) {
+    const scenes = await sql`select * from scenes where project_id = ${p.id} and id in ${sql(sids)} order by idx`;
+    for (const s of scenes) items.push({ kind: 'escena', id: s.id, label: `Escena ${s.idx}`, aspect: p.format, text: buildScenePrompt({ project: p, style, scene: s, cast }), upload: `/api/proyectos/${p.id}/escenas/${s.id}/imagen` });
+  }
+  if (!items.length) throw new AppError(400, 'No hay nada que enviar a Flow.');
+  const tr = await toEnglish(items.map((i) => i.text));
+  return { items: items.map(({ text, ...i }, k) => ({ ...i, ...tr[k] })) };
+}
+
 // ------------------------------------------------------------------ reparto
 export async function generateReference(user, projectId, charId) {
   const p = await own(user, projectId);

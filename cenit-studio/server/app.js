@@ -163,7 +163,8 @@ export async function buildApp() {
   app.post('/api/proyectos/:id/escenas/orden', async (req) => { await P.reorder(req.user, req.params.id, req.body?.ids || []); return { ok: true }; });
   app.post('/api/proyectos/:id/escenas/:sid/imagen', async (req) => V.uploadSceneImage(req.user, req.params.id, req.params.sid, (await file(req)).buffer));
   app.get('/api/proyectos/:id/escenas/:sid/prompt', async (req) => V.scenePrompt(req.user, req.params.id, req.params.sid));
-  app.post('/api/proyectos/:id/imagenes',async (req) => ({ queued: await V.requestImages(req.user, req.params.id, req.body?.sceneIds || null) }));
+  app.post('/api/proyectos/:id/flow', async (req) => V.flowPrompts(req.user, req.params.id, req.body || {}));
+  app.post('/api/proyectos/:id/imagenes', async (req) => ({ queued: await V.requestImages(req.user, req.params.id, req.body?.sceneIds || null) }));
   app.post('/api/proyectos/:id/animar', async (req) => ({ queued: await V.requestAnimation(req.user, req.params.id, req.body?.sceneIds || [], req.body?.mode) }));
   app.post('/api/proyectos/:id/voz', async (req) => VO.requestVoice(req.user, req.params.id, req.body?.sceneIds || null));
   app.post('/api/proyectos/:id/render', async (req) => R.requestRender(req.user, req.params.id, req.body || {}));

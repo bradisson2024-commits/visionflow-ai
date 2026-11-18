@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, fileUrl, useData } from '../../lib/api.js';
 import { Action, Modal, Status, useToast } from '../../components/ui.jsx';
+import { sendToFlow, useFlowProgress } from '../../lib/flow.js';
 
 const RHYTHM = [['rapido', 'Rápido', '≈ 4 s por imagen'], ['normal', 'Normal', '≈ 5 s por imagen'], ['lento', 'Lento', 'configurable']];
 const KINDS = ['personaje', 'animal', 'objeto', 'escenario'];
@@ -43,7 +44,7 @@ function Casting({ p, reload }) {
   const upload = async (c, file) => { const fd = new FormData(); fd.append('file', file); try { await api(`/api/proyectos/${p.id}/reparto/${c.id}/subir`, { method: 'POST', form: fd }); await reload(); } catch (e) { toast(e.message, true); } };
   return (
     <div className="card">
-      <div className="row between"><h2 style={{ margin: 0 }}>Casting y Referencias</h2><button className="btn sm" onClick={() => setEdit({ kind: 'personaje', name: '', confirmed: true })}>＋ Añadir</button></div>
+      <div className="row between"><h2 style={{ margin: 0 }}>Casting y Referencias</h2><div className="row">{p.cast.some((c) => !c.ref_path) && <Action className="btn sm flow" busyText="Enviando…" run={() => sendToFlow(p, { charIds: p.cast.filter((c) => !c.ref_path).map((c) => c.id) })}>Referencias en Flow</Action>}<button className="btn sm" onClick={() => setEdit({ kind: 'personaje', name: '', confirmed: true })}>＋ Añadir</button></div></div>
       <p className="dim">Se detectan automáticamente al dividir el guion. Confírmalos y añade una imagen de referencia: se usa como condicionamiento visual en todas las escenas donde aparecen, para que no cambien de aspecto.</p>
       {!p.cast.length && <p className="muted">Aún no hay reparto. Divide el guion en escenas o añade personajes a mano.</p>}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
@@ -60,6 +61,7 @@ function Casting({ p, reload }) {
                 {!c.confirmed && <Action className="btn sm primary" run={() => save({ ...c, confirmed: true })}>Confirmar</Action>}
                 <button className="btn sm" onClick={() => setEdit(c)}>Editar</button>
                 <Action className="btn sm" busyText="Generando…" run={async () => { await api(`/api/proyectos/${p.id}/reparto/${c.id}/generar`, { method: 'POST' }); await reload(); return 'Referencia generada.'; }}>Generar referencia</Action>
+                <Action className="btn sm flow" title="Crea la referencia en Google Flow (prompt en inglés) y la trae aquí" busyText="Enviando…" run={() => sendToFlow(p, { charIds: [c.id] })}>Flow</Action>
                 <label className="btn sm">Subir imagen<input type="file" accept="image/*" hidden onChange={(e) => e.target.files[0] && upload(c, e.target.files[0])} /></label>
                 {c.ref_path && <Action className="btn sm" run={async () => { await api(`/api/proyectos/${p.id}/reparto/${c.id}/ampliar`, { method: 'POST' }); await reload(); return 'Referencia ampliada 2×.'; }}>Ampliar 2×</Action>}
                 <Action className="btn sm danger" run={async () => { if (confirm(`¿Quitar a ${c.name}?`)) { await api(`/api/proyectos/${p.id}/reparto/${c.id}`, { method: 'DELETE' }); await reload(); } }}>Quitar</Action>
@@ -112,6 +114,7 @@ function SceneCard({ p, s, reload, cast }) {
         <button className="btn sm" onClick={() => { setForm({ image_prompt: s.image_prompt, visual: s.visual, character_ids: s.character_ids || [] }); setImg(true); }}>Prompt Img</button>
         <button className="btn sm" onClick={() => { setForm({ anim_prompt: s.anim_prompt, mode: s.anim_mode === 'ninguna' ? 'camara' : s.anim_mode }); setAnim(true); }}>Prompt anim</button>
         <Action className="btn sm primary" busyText="En cola…" run={async () => { await api(`/api/proyectos/${p.id}/imagenes`, { method: 'POST', body: { sceneIds: [s.id] } }); await reload(); }}>{s.image_status === 'error' ? 'Reintentar' : s.image_path ? 'Regenerar' : 'Generar'}</Action>
+        <Action className="btn sm flow" title="Crea esta imagen en Google Flow (prompt en inglés) y la trae aquí" busyText="Enviando…" run={() => sendToFlow(p, { sceneIds: [s.id] })}>Flow</Action>
         <Action className="btn sm" title="Copia el prompt completo (con estilo y reparto) para crear la imagen en Google Flow u otra herramienta" run={async () => { const r = await api(`/api/proyectos/${p.id}/escenas/${s.id}/prompt`); try { await navigator.clipboard.writeText(r.prompt); return 'Prompt copiado. Pégalo en Google Flow.'; } catch { window.prompt('Copia el prompt:', r.prompt); } }}>Copiar prompt</Action>
         <label className="btn sm" title="Sube una imagen hecha por ti (Google Flow, Gemini…). Se ajusta al formato del vídeo.">Subir imagen<input type="file" accept="image/*" hidden onChange={async (e) => {
           const f = e.target.files[0]; e.target.value = '';
@@ -163,6 +166,7 @@ export default function Contenido({ p, reload, patch }) {
   const [rhythm, setRhythm] = useState(p.rhythm);
   const [est, setEst] = useState(null);
   const toast = useToast();
+  useFlowProgress(reload, toast);
   useEffect(() => { setScript(p.script || ''); }, [p.script]);
   useEffect(() => { setIdea(p.idea || ''); }, [p.idea]);
   useEffect(() => { api(`/api/proyectos/${p.id}/estimacion?recalcular=1`).then(setEst).catch(() => {}); }, [p.id, p.script, p.rhythm.seconds]);
@@ -224,7 +228,8 @@ export default function Contenido({ p, reload, patch }) {
           <h2 style={{ margin: 0 }}>Escenas ({p.scenes.length})</h2>
           <div className="row">
             <span className="dim">{done}/{p.scenes.length} imágenes</span>
-            <Action className="btn primary" disabled={!pendingImgs || imgsRunning > 0} busyText="En cola…" run={async () => { const r = await api(`/api/proyectos/${p.id}/imagenes`, { method: 'POST', body: {} }); await reload(); return `${r.queued} imágenes en cola.`; }}>Generar todas</Action>
+            <Action className="btn primary flow" disabled={!pendingImgs} busyText="Enviando…" run={() => sendToFlow(p, { sceneIds: p.scenes.filter((s) => s.image_status !== 'lista').map((s) => s.id) })}>Todas en Flow</Action>
+            <Action className="btn" disabled={!pendingImgs || imgsRunning > 0} busyText="En cola…" run={async () => { const r = await api(`/api/proyectos/${p.id}/imagenes`, { method: 'POST', body: {} }); await reload(); return `${r.queued} imágenes en cola.`; }}>Generar todas</Action>
             <Action className="btn" disabled={!p.scenes.some((s) => s.image_status === 'lista')} run={async () => { const ids = p.scenes.filter((s) => s.image_status === 'lista').map((s) => s.id); const mode = confirm('¿Animar todas con Veo (consume créditos)? Pulsa Cancelar para usar movimiento de cámara gratuito.') ? 'veo' : 'camara'; await api(`/api/proyectos/${p.id}/animar`, { method: 'POST', body: { sceneIds: ids, mode } }); await reload(); return 'Animaciones en cola.'; }}>Animar todas</Action>
           </div>
         </div>
