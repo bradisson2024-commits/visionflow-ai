@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+/*
+ * ClipForge — sistema visual.
+ * Oscuro por defecto (entorno de edición de video), acento "forja" ámbar/naranja
+ * y un cian para señales de IA.
+ */
+:root {
+  --bg: #0a0a0d;
+  --surface: #121218;
+  --surface-2: #1a1a22;
+  --surface-3: #23232d;
+  --line: #2a2a35;
+  --line-strong: #3a3a48;
+  --text: #f3f2f5;
+  --muted: #9b9aab;
+  --faint: #6c6b7c;
+  --ember: #ff6b1a;
+  --ember-2: #ffaa2b;
+  --ai: #45d3f0;
+  --ok: #3ddc97;
+  --warn: #f5c443;
+  --bad: #ff4d6a;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-ember: var(--ember);
+  --color-ember-2: var(--ember-2);
+  --color-ai: var(--ai);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Space Grotesk Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--ember) 45%, transparent);
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Gradiente de marca para acentos */
+.forge-gradient {
+  background-image: linear-gradient(135deg, var(--ember) 0%, var(--ember-2) 100%);
+}
+.forge-text {
+  background-image: linear-gradient(135deg, var(--ember) 0%, var(--ember-2) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Textura sutil tipo "film strip" para fondos de cabecera */
+.filmstrip {
+  background-image:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in oklab, var(--ember) 18%, transparent) 0%, transparent 55%),
+    radial-gradient(90% 120% at 100% 100%, color-mix(in oklab, var(--ai) 10%, transparent) 0%, transparent 60%);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ember-2);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
