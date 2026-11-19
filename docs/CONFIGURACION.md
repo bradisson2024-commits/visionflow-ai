@@ -33,3 +33,14 @@ error explícito; no se simulan resultados.
 
 `FFMPEG_PATH`, `FFPROBE_PATH` (por defecto los del sistema), `WORKER_CONCURRENCY`, `MAX_UPLOAD_MB`.
 Infraestructura: `DATABASE_URL` (PostgreSQL) y `REDIS_URL`.
+
+## 5. Importación por enlace
+
+- Se aceptan enlaces de **descarga directa** a archivos de video (servidor propio, S3/R2, Dropbox o Google
+  Drive compartidos públicamente; los enlaces de “compartir” de Dropbox/Drive/OneDrive se convierten
+  automáticamente).
+- Los enlaces de YouTube, TikTok, Instagram, Facebook, X, Twitch y Vimeo se rechazan con una explicación:
+  sus términos prohíben descargar con herramientas externas (regla 17 del encargo).
+- Protección SSRF: el servidor no descarga desde direcciones privadas o locales. `IMPORT_ALLOW_PRIVATE_HOSTS=true`
+  desactiva esa protección y **sólo debe usarse en pruebas**.
+- La descarga la ejecuta el worker (`npm run worker`); sin worker, la importación queda “En cola”.

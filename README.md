@@ -11,7 +11,7 @@ puntuación, reencuadre vertical, subtítulos y exportación real con FFmpeg.
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Base: arquitectura, diseño, dashboard, navegación, BD, usuarios, proyectos | ✅ Hecha y probada |
-| 2 | Subida real de videos, validación, almacenamiento, vista previa | ⏳ Pendiente |
+| 2 | Subida real de videos (por partes, reanudable, cancelable), importación por enlace directo, validación FFprobe, almacenamiento, vista previa, descarga del original | ✅ Hecha y probada |
 | 3 | Audio, transcripción, análisis con IA, detección y puntuación de momentos | ⏳ Pendiente (requiere claves API) |
 | 4 | Motor de clips: corte FFmpeg, formatos, reencuadre | ⏳ Pendiente |
 | 5 | Subtítulos sincronizados, estilos, editor | ⏳ Pendiente |
@@ -28,9 +28,11 @@ cp .env.example .env          # edita las claves (ver docs/CONFIGURACION.md)
 docker compose up -d db redis # o: npm run services:start (Linux con servicios del sistema)
 npm run db:migrate
 npm run dev                   # http://localhost:3000
+npm run worker                # en otra terminal: procesa los trabajos en segundo plano
 ```
 
-Pruebas de integración (con el servidor en marcha): `npm test`.
+Pruebas de integración: `bash scripts/make-test-videos.sh`, luego servidor y worker con
+`IMPORT_ALLOW_PRIVATE_HOSTS=true` (sólo para pruebas) y `npm test`.
 
 ## Documentación
 

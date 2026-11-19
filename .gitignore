@@ -12,3 +12,4 @@ next-env.d.ts
 storage/
 .DS_Store
 npm-debug.log*
+tests/fixtures/

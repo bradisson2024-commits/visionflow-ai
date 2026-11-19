@@ -1,12 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Construction, Film, ListChecks, Scissors } from "lucide-react";
+import { ArrowLeft, Film, ListChecks, Scissors } from "lucide-react";
 import { requirePageUser } from "@/server/auth/session";
 import { getProjectDetail } from "@/server/services/projects";
 import { HttpError } from "@/server/http";
 import { ProjectActions } from "@/components/projects/project-actions";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatRelative, JOB_STAGE_LABEL } from "@/lib/format";
+import { VideoSection } from "@/components/video/video-section";
+import { LiveRefresh } from "@/components/video/live-refresh";
+import { RetryJobButton } from "@/components/video/job-actions";
+import { ProgressBar } from "@/components/ui/progress-bar";
+
+const JOB_TYPE_LABEL: Record<string, string> = {
+  import_url: "Importar desde enlace",
+  analyze: "Analizar video",
+  render_clip: "Renderizar clip",
+  export_zip: "Exportar clips",
+};
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,9 +30,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     throw e;
   }
   const { project, videos, clips, jobs } = detail;
+  const video = videos[0];
+  const importJob = video ? jobs.find((j) => j.videoId === video.id && j.type === "import_url") : undefined;
+  const live = jobs.some((j) => j.status === "queued" || j.status === "running") || (video?.uploadStatus === "uploading" && video.source === "url");
 
   return (
     <>
+      <LiveRefresh active={live} />
       <div className="safe-top pt-4 md:pt-8">
         <Link href="/projects" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-text">
           <ArrowLeft className="size-4" /> Proyectos
@@ -44,25 +59,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             <h2 className="font-display flex items-center gap-2 text-lg font-semibold">
               <Film className="size-5 text-ember-2" /> Video
             </h2>
-            {videos.length === 0 ? (
-              <div className="mt-4 flex gap-3 rounded-2xl border border-warn/30 bg-warn/5 p-4">
-                <Construction className="mt-0.5 size-5 shrink-0 text-warn" />
-                <div className="text-sm">
-                  <p className="font-medium text-warn">Importación de video: pendiente (Fase 2)</p>
-                  <p className="mt-1 text-muted">
-                    La subida real de archivos con progreso, cancelación y validación de formato todavía no está
-                    construida. Este proyecto ya está guardado en la base de datos y recibirá el video cuando esa fase
-                    esté lista.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <ul className="mt-4 space-y-2 text-sm">
-                {videos.map((v) => (
-                  <li key={v.id} className="rounded-xl bg-surface-2 px-3 py-2">{v.originalFilename}</li>
-                ))}
-              </ul>
-            )}
+            <VideoSection projectId={project.id} video={video} importJob={importJob} />
           </section>
 
           <section className="rounded-3xl border border-line bg-surface p-5">
@@ -87,9 +84,17 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           ) : (
             <ul className="mt-3 space-y-2">
               {jobs.map((j) => (
-                <li key={j.id} className="rounded-xl bg-surface-2 px-3 py-2 text-sm">
-                  {JOB_STAGE_LABEL[j.stage]} · {j.progress}%
-                  {j.error && <p className="mt-1 text-xs text-bad">{j.error}</p>}
+                <li key={j.id} className="rounded-xl bg-surface-2 px-3 py-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>{JOB_TYPE_LABEL[j.type] ?? j.type}</span>
+                    <span className={j.status === "failed" ? "text-xs text-bad" : j.status === "completed" ? "text-xs text-ok" : "text-xs text-muted"}>
+                      {j.status === "cancelled" ? "Cancelado" : JOB_STAGE_LABEL[j.stage]}
+                    </span>
+                  </div>
+                  {(j.status === "running" || j.status === "queued") && <ProgressBar value={j.progress} className="mt-2 h-1.5" />}
+                  {j.error && <p className="mt-1.5 text-xs text-bad">{j.error}</p>}
+                  {j.status === "failed" && <div className="mt-2"><RetryJobButton jobId={j.id} /></div>}
+                  <p className="mt-1 text-[11px] text-faint">{formatRelative(j.createdAt)}</p>
                 </li>
               ))}
             </ul>

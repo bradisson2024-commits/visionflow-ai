@@ -12,6 +12,7 @@ export type ProjectSummary = {
   clipCount: number;
   durationSec: number | null;
   videoId: string | null;
+  thumbnailKey?: string | null;
 };
 
 export function ProjectCard({ p }: { p: ProjectSummary }) {
@@ -19,7 +20,12 @@ export function ProjectCard({ p }: { p: ProjectSummary }) {
     <div className="group relative overflow-hidden rounded-2xl border border-line bg-surface transition hover:border-line-strong">
       <Link href={`/projects/${p.id}`} className="block">
         <div className="filmstrip relative grid aspect-video place-items-center border-b border-line bg-surface-2">
-          <Film className="size-8 text-faint" />
+          {p.videoId && p.thumbnailKey ? (
+            // eslint-disable-next-line @next/next/no-img-element -- imagen privada servida por la API con cookie de sesión
+            <img src={`/api/media/videos/${p.videoId}/thumbnail`} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" />
+          ) : (
+            <Film className="size-8 text-faint" />
+          )}
           {p.durationSec != null && (
             <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] tabular-nums">
               {formatDuration(p.durationSec)}

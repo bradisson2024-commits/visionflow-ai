@@ -105,6 +105,10 @@ export const videos = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     originalFilename: text("original_filename").notNull(),
+    /** Origen: subida directa o enlace importado. */
+    source: text("source").$type<"upload" | "url">().notNull().default("upload"),
+    sourceUrl: text("source_url"),
+    error: text("error"),
     storageKey: text("storage_key").notNull(),
     mimeType: text("mime_type"),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull().default(0),
@@ -124,11 +128,13 @@ export const videos = pgTable(
 
 /* ──────────────────────── Trabajos en segundo plano ───────────────── */
 
-export const jobType = pgEnum("job_type", ["analyze", "render_clip", "export_zip"]);
+export const jobType = pgEnum("job_type", ["import_url", "analyze", "render_clip", "export_zip"]);
 export const jobStatus = pgEnum("job_status", ["queued", "running", "completed", "failed", "cancelled"]);
 /** Etapas visibles para el usuario (requisito §12). */
 export const jobStage = pgEnum("job_stage", [
   "queued",
+  "downloading",
+  "probing",
   "extracting_audio",
   "transcribing",
   "detecting_moments",

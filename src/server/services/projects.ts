@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "../db";
 import { HttpError } from "../http";
+import { keys, storage } from "../storage";
 
 /** Lista de proyectos del usuario con su video principal y recuento de clips. */
 export async function listProjects(userId: string) {
@@ -54,7 +55,11 @@ export async function renameProject(userId: string, projectId: string, name: str
 
 export async function deleteProject(userId: string, projectId: string) {
   await getOwnedProject(userId, projectId);
-  // Los archivos asociados se eliminan del almacenamiento a partir de la Fase 2
-  // (ver services/storage); las filas dependientes caen por ON DELETE CASCADE.
+  const vids = await db.query.videos.findMany({ where: eq(schema.videos.projectId, projectId), columns: { id: true } });
+  // Las filas dependientes caen por ON DELETE CASCADE; los archivos se borran aquí.
   await db.delete(schema.projects).where(eq(schema.projects.id, projectId));
+  const { rm } = await import("node:fs/promises");
+  const { partPath } = await import("./videos");
+  for (const v of vids) await rm(await partPath(v.id), { force: true });
+  await storage.deletePrefix(keys.projectPrefix(projectId));
 }
