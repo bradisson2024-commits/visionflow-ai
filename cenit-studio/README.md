@@ -135,3 +135,6 @@ Si tu clave de Gemini no tiene facturación, Google no genera imágenes por API.
 1. **Prompt en inglés** (en cada escena o personaje, o «Prompts en inglés (sin imagen)» / «Prompts del reparto» para todos): muestra y copia el prompt traducido al inglés, con el estilo y el reparto incluidos.
 2. **Flow**: abre `flow.google.com`. Pega el prompt, genera la imagen y descárgala.
 3. **Subir imagen**: la imagen se ajusta al formato del vídeo y queda en su escena o personaje.
+
+## Windows: abrir con un icono
+Ejecuta una vez `windows\Crear accesos directos.bat`. Crea en el Escritorio **Cenit Studio** (enciende el servidor sin ventanas y abre la página) y **Detener Cenit Studio**, y hace que el servidor se encienda solo al iniciar Windows. Si el servidor se cierra por un error, se vuelve a arrancar; el registro queda en `windows\cenit.log`.
