@@ -108,8 +108,8 @@ export async function startFakes() {
       return send(res, 200, text(JSON.stringify({ escenas: out })));
     }
     if (/describes una imagen/.test(sys)) {
-      const k = (prompt.match(/^\d+\. /gm) || []).length;
-      return send(res, 200, text(JSON.stringify({ escenas: Array.from({ length: k }, (_, i) => ({ n: i + 1, visual: 'x', prompt_imagen: `frame ${i}`, prompt_animacion: 'pan', reparto: [] })) })));
+      const frags = (prompt.split('FRAGMENTOS:\n')[1] || '').split('\nJSON:')[0].split('\n').filter((l) => /^\d+\. /.test(l)).map((l) => l.replace(/^\d+\. /, ''));
+      return send(res, 200, text(JSON.stringify({ escenas: frags.map((t, i) => ({ n: i + 1, visual: `Ilustra: ${t.slice(0, 40)}`, prompt_imagen: `scene showing ${t.slice(0, 60)}`, prompt_animacion: 'slow push-in, rain falling', reparto: ['Marta', 'Cangrejo'].filter((nm) => t.includes(nm) || (nm === 'Cangrejo' && /cangrejo/i.test(t))) })) })));
     }
     return send(res, 200, text('{}'));
   }

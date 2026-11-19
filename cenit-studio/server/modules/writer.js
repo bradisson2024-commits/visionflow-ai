@@ -75,7 +75,7 @@ export async function transcribeAudio(buffer, mime) {
 /** Biblia de continuidad: lo que debe mantenerse igual en todas las escenas. */
 export async function storyBible(script, styleName) {
   const r = await gemini.ask({
-    json: true, temperature: 0.4,
+    json: true, temperature: 0.4, timeout: 90000, attempts: 2,
     system: 'Eres director de arte. Lees la historia completa antes de diseñar ninguna escena.',
     prompt: `ESTILO: ${styleName}\nGUION COMPLETO:\n"""${script.slice(0, 30000)}"""\nJSON: {"epoca": string, "lugares_recurrentes": [{"nombre": string, "descripcion": string}], "iluminacion": string, "paleta": string, "tono": string,
  "reparto": [{"tipo": "personaje"|"animal"|"objeto"|"escenario", "nombre": string, "papel": string, "descripcion_fisica": string, "vestimenta": string, "rasgos": string}]}
@@ -85,41 +85,65 @@ El reparto incluye sólo personajes, animales, objetos importantes y escenarios 
 }
 
 /**
- * División en escenas: cada escena es una idea visual concreta del guion. El texto se conserva íntegro y en orden
- * (se comprueba); el número de escenas se orienta al ritmo elegido (segundos por imagen).
+ * División en escenas, rápida: el texto se reparte localmente por oraciones según el ritmo elegido (al instante y
+ * conservando el guion exacto y en orden). Después la IA sólo describe cada imagen, en lotes pequeños que se piden
+ * en paralelo. Si un lote no responde, sus escenas quedan con la narración como descripción y se pueden editar.
  */
-export async function splitScenes({ script, seconds, bible, styleName, cast }) {
-  const total = words(script);
-  const target = Math.max(1, Math.round((total / WPM) * 60 / seconds));
-  const castList = (cast || []).map((c) => `${c.name}: ${c.description}${c.wardrobe ? `, viste ${c.wardrobe}` : ''}`).join('\n');
-  let last;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const r = await gemini.ask({
-      json: true, temperature: 0.4, pro: attempt > 0,
-      system: `Eres director de storyboard. Divides el guion en escenas por IDEAS VISUALES (no por número de palabras): una escena cambia cuando cambia lo que hay que mostrar. Copias el texto del guion EXACTO, sin cambiar ni omitir nada, en orden.`,
-      prompt: `ESTILO: ${styleName}\nBIBLIA DE CONTINUIDAD: ${JSON.stringify(bible || {}).slice(0, 4000)}\nREPARTO FIJO:\n${castList || '(sin reparto)'}\n\nGUION:\n"""${script}"""\n
-Divide en unas ${target} escenas (ritmo ~${seconds} s por imagen; puede variar si una idea visual lo exige).
-JSON: {"escenas": [{"texto": string (fragmento literal del guion), "visual": string (qué se ve, en español), "prompt_imagen": string (en inglés, 40–90 palabras: sujeto, acción, entorno, encuadre, luz; nombra a los miembros del reparto que aparezcan por su nombre exacto), "prompt_animacion": string (en inglés: movimiento de personajes, objetos, cámara y entorno durante la escena), "reparto": [string] (nombres exactos del reparto que aparecen)}]}`,
-    });
-    const scenes = (r.data.escenas || []).map((s) => ({ narration: norm(s.texto), visual: s.visual, image_prompt: norm(s.prompt_imagen), anim_prompt: norm(s.prompt_animacion), cast: s.reparto || [] })).filter((s) => s.narration);
-    if (norm(scenes.map((s) => s.narration).join(' ')) === norm(script)) return scenes;
-    last = new Error('La división no reproducía el guion exacto.');
-  }
-  // Respaldo determinista: oraciones agrupadas hasta el ritmo elegido; la IA sólo describe lo visual.
-  const sentences = norm(script).match(/[^.!?…]+[.!?…]+["»”]?|[^.!?…]+$/g).map((s) => s.trim());
+export function groupScript(script, seconds) {
   const per = Math.max(6, Math.round((WPM / 60) * seconds));
+  const sentences = (norm(script).match(/[^.!?…]+[.!?…]+["»”)]?|[^.!?…]+$/g) || []).map((x) => x.trim()).filter(Boolean);
+  const pieces = [];
+  for (const st of sentences) {
+    if (words(st) <= per * 2) { pieces.push(st); continue; }
+    // Oración muy larga: se corta por comas o punto y coma para no dejar una imagen demasiado tiempo.
+    let buf = '';
+    for (const part of st.split(/(?<=[,;:])\s+/)) { buf = buf ? `${buf} ${part}` : part; if (words(buf) >= per) { pieces.push(buf); buf = ''; } }
+    if (buf) pieces.push(buf);
+  }
   const groups = [];
   let buf = [];
-  for (const s of sentences) { buf.push(s); if (words(buf.join(' ')) >= per) { groups.push(buf.join(' ')); buf = []; } }
+  for (const piece of pieces) {
+    if (buf.length && words([...buf, piece].join(' ')) > per * 1.4) { groups.push(buf.join(' ')); buf = []; }
+    buf.push(piece);
+    if (words(buf.join(' ')) >= per) { groups.push(buf.join(' ')); buf = []; }
+  }
   if (buf.length) groups.push(buf.join(' '));
-  const r = await gemini.ask({
-    json: true, temperature: 0.4,
-    system: 'Eres director de storyboard. Para cada fragmento describes una imagen que representa exactamente lo que dice, con continuidad.',
-    prompt: `ESTILO: ${styleName}\nBIBLIA: ${JSON.stringify(bible || {}).slice(0, 3000)}\nREPARTO:\n${castList}\nFRAGMENTOS:\n${groups.map((g, i) => `${i + 1}. ${g}`).join('\n')}\nJSON: {"escenas": [{"n": number, "visual": string, "prompt_imagen": string, "prompt_animacion": string, "reparto": [string]}]} con exactamente ${groups.length} elementos.`,
+  return groups;
+}
+
+const BATCH = 12;
+const PARALLEL = 4;
+
+export async function describeScenes({ groups, bible, styleName, cast, onProgress }) {
+  const castList = (cast || []).map((c) => `${c.name}: ${c.description || ''}${c.wardrobe ? `, viste ${c.wardrobe}` : ''}`).join('\n');
+  const batches = [];
+  for (let i = 0; i < groups.length; i += BATCH) batches.push(i);
+  const out = new Array(groups.length).fill(null);
+  let done = 0;
+  const runBatch = async (start) => {
+    const part = groups.slice(start, start + BATCH);
+    try {
+      const r = await gemini.ask({
+        json: true, temperature: 0.4, timeout: 90000, attempts: 2,
+        system: 'Eres director de storyboard. Para cada fragmento describes una imagen que representa exactamente lo que dice, con continuidad entre escenas.',
+        prompt: `ESTILO: ${styleName}\nBIBLIA: ${JSON.stringify(bible || {}).slice(0, 2500)}\nREPARTO:\n${castList || '(sin reparto)'}\nFRAGMENTOS:\n${part.map((g, k) => `${k + 1}. ${g}`).join('\n')}\nJSON: {"escenas": [{"n": number, "visual": string (qué se ve, en español), "prompt_imagen": string (en inglés, 40–80 palabras: sujeto, acción, entorno, encuadre, luz; nombra al reparto por su nombre exacto), "prompt_animacion": string (en inglés, breve), "reparto": [string] (nombres exactos del reparto que aparecen)}]} con exactamente ${part.length} elementos, en el mismo orden.`,
+      });
+      const vis = r.data?.escenas || [];
+      part.forEach((_, k) => { const v = vis.find((x) => Number(x.n) === k + 1) || vis[k]; if (v) out[start + k] = v; });
+    } catch { /* este lote queda con la narración como descripción */ }
+    done += part.length;
+    await onProgress?.(done / groups.length);
+  };
+  const queue = [...batches];
+  await Promise.all(Array.from({ length: Math.min(PARALLEL, queue.length) }, async () => { while (queue.length) await runBatch(queue.shift()); }));
+  return groups.map((g, i) => {
+    const v = out[i] || {};
+    return { narration: g, visual: v.visual || g, image_prompt: norm(v.prompt_imagen || g), anim_prompt: norm(v.prompt_animacion || 'slow camera push-in'), cast: Array.isArray(v.reparto) ? v.reparto : [], described: !!out[i] };
   });
-  const vis = r.data.escenas || [];
-  if (vis.length !== groups.length) throw last;
-  return groups.map((g, i) => ({ narration: g, visual: vis[i].visual, image_prompt: norm(vis[i].prompt_imagen), anim_prompt: norm(vis[i].prompt_animacion), cast: vis[i].reparto || [] }));
+}
+
+export async function splitScenes({ script, seconds, bible, styleName, cast, onProgress }) {
+  return describeScenes({ groups: groupScript(script, seconds), bible, styleName, cast, onProgress });
 }
 
 /** Escenas para el modo audio: frases agrupadas respetando sus tiempos reales. */

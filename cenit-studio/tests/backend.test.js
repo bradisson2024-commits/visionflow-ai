@@ -109,7 +109,8 @@ test('Desde Idea: guion, mejora, escenas coherentes, reparto y referencias', { t
   await ok('POST', `/api/proyectos/${pid}/dividir`, { token: u1.token });
   await idle();
   const full = await ok('GET', `/api/proyectos/${pid}`, { token: u1.token });
-  assert.equal(full.scenes.length, 5);
+  assert.ok(full.scenes.length >= 4 && full.scenes.length <= 8, `escenas según el ritmo (${full.scenes.length})`);
+  assert.ok(full.scenes.every((s) => /^scene showing/.test(s.image_prompt)), 'cada escena tiene su descripción de imagen');
   assert.equal(full.scenes.map((s) => s.narration).join(' '), g.script.replace(/\s+/g, ' ').trim(), 'las escenas reproducen el guion exacto');
   assert.deepEqual(full.cast.map((c) => c.name).sort(), ['Cangrejo', 'Marta']);
   const marta = full.cast.find((c) => c.name === 'Marta');
@@ -131,9 +132,9 @@ test('imágenes: todas, fallo aislado, reintento y Prompt Img individual', { tim
   await ok('POST', `/api/proyectos/${pid}/imagenes`, { token: u1.token, body: {} });
   await idle();
   let p = await ok('GET', `/api/proyectos/${pid}`, { token: u1.token });
-  assert.deepEqual(p.scenes.map((s) => s.image_status), ['lista', 'lista', 'error', 'lista', 'lista']);
+  assert.deepEqual(p.scenes.map((s) => s.image_status), p.scenes.map((_, i) => (i === 2 ? 'error' : 'lista')));
   assert.match(p.scenes[2].image_error, /bloqueado/);
-  assert.equal((await ok('GET', '/api/me', { token: u1.token })).credits, creditsBefore - 4 * 39, 'la imagen fallida se reembolsa');
+  assert.equal((await ok('GET', '/api/me', { token: u1.token })).credits, creditsBefore - (p.scenes.length - 1) * 39, 'la imagen fallida se reembolsa');
   await ok('PATCH', `/api/proyectos/${pid}/escenas/${s3.id}`, { token: u1.token, body: { image_prompt: 'the crab climbing the spiral staircase' } });
   await ok('POST', `/api/proyectos/${pid}/imagenes`, { token: u1.token, body: { sceneIds: [s3.id] } });
   await idle();

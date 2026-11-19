@@ -113,8 +113,8 @@ defineJob('proyecto.dividir', async (job, { progress }) => {
   const ch = await charge(p.owner_id, 'texto.analisis', 2, { split: true }, p.id);
   try {
     const script = p.mode === 'audio' ? p.source.segments.map((s) => s.text).join(' ') : p.script;
-    const bible = await W.storyBible(script, style.name);
-    await progress(0.4, 'Reparto detectado; dividiendo en escenas…');
+    const bible = await W.storyBible(script, style.name).catch(() => ({}));
+    await progress(0.3, 'Reparto detectado; describiendo las escenas…');
     // Casting: confirmados del usuario + detectados (sin duplicar nombres)
     const existing = await sql`select * from characters where project_id = ${p.id}`;
     for (const c of bible.reparto || []) {
@@ -122,13 +122,14 @@ defineJob('proyecto.dividir', async (job, { progress }) => {
       await sql`insert into characters(project_id, kind, name, role, description, wardrobe, traits) values (${p.id}, ${['personaje', 'animal', 'objeto', 'escenario'].includes(c.tipo) ? c.tipo : 'personaje'}, ${c.nombre}, ${c.papel || null}, ${c.descripcion_fisica || null}, ${c.vestimenta || null}, ${c.rasgos || null})`;
     }
     const cast = await sql`select * from characters where project_id = ${p.id}`;
+    const onDescribe = (f) => progress(0.3 + 0.65 * f, `Describiendo escenas… ${Math.round(f * 100)}%`);
     let scenes;
     if (p.mode === 'audio') {
       const groups = W.scenesFromSegments(p.source.segments, p.rhythm.seconds);
-      const vis = await W.splitScenes({ script: groups.map((g) => g.text).join(' '), seconds: p.rhythm.seconds, bible, styleName: style.name, cast }).catch(() => null);
-      scenes = groups.map((g, i) => ({ narration: g.text, start: g.start, end: g.end, visual: vis?.[i]?.visual || g.text, image_prompt: vis?.[i]?.image_prompt || g.text, anim_prompt: vis?.[i]?.anim_prompt || 'slow camera push-in', cast: vis?.[i]?.cast || [] }));
+      const vis = await W.describeScenes({ groups: groups.map((g) => g.text), bible, styleName: style.name, cast, onProgress: onDescribe });
+      scenes = groups.map((g, i) => ({ ...vis[i], start: g.start, end: g.end }));
     } else {
-      scenes = await W.splitScenes({ script, seconds: p.rhythm.seconds, bible, styleName: style.name, cast });
+      scenes = await W.splitScenes({ script, seconds: p.rhythm.seconds, bible, styleName: style.name, cast, onProgress: onDescribe });
     }
     await sql.begin(async (tx) => {
       await tx`delete from scenes where project_id = ${p.id}`;
@@ -142,7 +143,8 @@ defineJob('proyecto.dividir', async (job, { progress }) => {
       await tx`update projects set bible = ${tx.json(bible)}, source = ${times ? tx.json({ ...p.source, sceneTimes: times }) : p.source ? tx.json(p.source) : null}, status = 'escenas', updated_at = now() where id = ${p.id}`;
     });
     emit(p.owner_id, 'project', { projectId: p.id });
-    return `${scenes.length} escenas y ${cast.length} miembros del reparto.`;
+    const pending = scenes.filter((s) => !s.described).length;
+    return `${scenes.length} escenas y ${cast.length} miembros del reparto.${pending ? ` ${pending} escenas quedaron sin descripción de imagen (Gemini no respondió): revisa su «Prompt Img».` : ''}`;
   } catch (e) { await ch.refund(e.message); throw e; }
 });
 
