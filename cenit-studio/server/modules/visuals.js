@@ -98,42 +98,58 @@ export async function uploadSceneImage(user, projectId, sceneId, buffer) {
 
 // ------------------------------------------------------------------ Google Flow
 // Prompts en inglés para crear las imágenes en Google Flow con la cuenta del usuario; la imagen se sube después
-// con «Subir imagen» (la ruta de subida va en cada elemento).
+// con «Subir imagen». El prompt de cada escena ya se escribe en inglés al dividir el guion; sólo se traducen las
+// descripciones del reparto y la continuidad (textos cortos), en una única llamada rápida y con caché. Si Gemini no
+// responde a tiempo se entregan igualmente, con esas descripciones en el idioma original.
 const IDS = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const english = new Map(); // caché de traducciones (texto original → inglés)
-const refPrompt = (c, style) => `Character reference sheet of ${castLine(c)}. Full body, front view and three-quarter view side by side, neutral pose, plain light background, clear details of face, body shape, clothing colors and accessories. ${stylePrompt(style)}. Square image.`;
 
 async function toEnglish(texts) {
-  const todo = [...new Set(texts.filter((t) => !english.has(t)))];
-  for (let i = 0; i < todo.length; i += 20) {
-    const chunk = todo.slice(i, i + 20);
+  const todo = [...new Set(texts.filter((t) => t && !english.has(t)))];
+  if (todo.length) {
     try {
       const r = await gemini.ask({
-        json: true, temperature: 0.2,
-        system: 'You translate image-generation prompts into natural, fluent English for an image model. Keep every visual detail, proper names, colors, style and composition instructions. Do not add or remove content. Output only a JSON array of strings, same order and length as the input.',
-        prompt: JSON.stringify(chunk),
+        json: true, temperature: 0.1, timeout: 12000, attempts: 1,
+        system: 'Translate each string into natural English for an image-generation model. Keep proper names, colors and visual details. Output only a JSON array of strings, same order and length as the input.',
+        prompt: JSON.stringify(todo.slice(0, 60)),
       });
-      if (Array.isArray(r.data) && r.data.length === chunk.length) chunk.forEach((t, k) => english.set(t, String(r.data[k] || t)));
+      if (Array.isArray(r.data)) todo.slice(0, 60).forEach((t, k) => { if (r.data[k]) english.set(t, String(r.data[k])); });
     } catch { /* sin traducción: se usa el texto original */ }
   }
-  return texts.map((t) => ({ prompt: english.get(t) || t, translated: english.has(t) }));
+  return (t) => english.get(t) || t;
 }
+
+const castText = (c) => [c.description, c.wardrobe && `wears ${c.wardrobe}`, c.traits].filter(Boolean).join('; ');
 
 export async function flowPrompts(user, projectId, { sceneIds = [], charIds = [] } = {}) {
   const p = await own(user, projectId);
   const style = await getStyle(p.style_id);
   const cast = await sql`select * from characters where project_id = ${p.id}`;
-  const items = [];
   const cids = (charIds || []).filter((x) => IDS.test(String(x)));
-  for (const c of cast.filter((x) => cids.includes(x.id))) items.push({ kind: 'personaje', id: c.id, label: c.name, aspect: '1:1', text: refPrompt(c, style), upload: `/api/proyectos/${p.id}/reparto/${c.id}/subir` });
   const sids = (sceneIds || []).filter((x) => IDS.test(String(x)));
-  if (sids.length) {
-    const scenes = await sql`select * from scenes where project_id = ${p.id} and id in ${sql(sids)} order by idx`;
-    for (const s of scenes) items.push({ kind: 'escena', id: s.id, label: `Escena ${s.idx}`, aspect: p.format, text: buildScenePrompt({ project: p, style, scene: s, cast }), upload: `/api/proyectos/${p.id}/escenas/${s.id}/imagen` });
+  const scenes = sids.length ? await sql`select * from scenes where project_id = ${p.id} and id in ${sql(sids)} order by idx` : [];
+  const chars = cast.filter((c) => cids.includes(c.id));
+  if (!chars.length && !scenes.length) throw new AppError(400, 'No hay nada que preparar para Flow.');
+
+  // Textos en español que hay que traducir: reparto que aparece y continuidad de la historia.
+  const used = new Set([...chars.map((c) => c.id), ...scenes.flatMap((s) => s.character_ids || [])]);
+  const castUsed = cast.filter((c) => used.has(c.id));
+  const b = p.bible || {};
+  const cont = [b.epoca, b.iluminacion, b.paleta].filter(Boolean);
+  const en = await toEnglish([...castUsed.map(castText), ...cont]);
+  const line = (c) => `${c.name} (${c.kind === 'personaje' ? 'character' : c.kind}): ${en(castText(c))}`;
+  const allTranslated = [...castUsed.map(castText), ...cont].every((t) => !t || english.has(t));
+  const continuity = cont.length ? `Story continuity: era ${en(b.epoca || '') || '-'}; lighting ${en(b.iluminacion || '') || '-'}; palette ${en(b.paleta || '') || '-'}` : null;
+
+  const items = [];
+  for (const c of chars) items.push({ kind: 'personaje', id: c.id, label: c.name, aspect: '1:1', upload: `/api/proyectos/${p.id}/reparto/${c.id}/subir`,
+    prompt: `Character reference sheet of ${line(c)}. Full body, front view and three-quarter view side by side, neutral pose, plain light background, clear details of face, body shape, clothing colors and accessories. ${stylePrompt(style)}. Square image 1:1.` });
+  for (const s of scenes) {
+    const here = cast.filter((c) => s.character_ids?.includes(c.id));
+    items.push({ kind: 'escena', id: s.id, label: `Escena ${s.idx}`, aspect: p.format, upload: `/api/proyectos/${p.id}/escenas/${s.id}/imagen`,
+      prompt: [s.image_prompt, here.length && `Recurring characters in this shot, keep their exact look: ${here.map(line).join(' | ')}`, continuity, stylePrompt(style), `Aspect ratio ${p.format}. Single still frame.`].filter(Boolean).join('. ') });
   }
-  if (!items.length) throw new AppError(400, 'No hay nada que enviar a Flow.');
-  const tr = await toEnglish(items.map((i) => i.text));
-  return { items: items.map(({ text, ...i }, k) => ({ ...i, ...tr[k] })) };
+  return { items: items.map((i) => ({ ...i, translated: allTranslated })) };
 }
 
 // ------------------------------------------------------------------ reparto

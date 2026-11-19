@@ -13,7 +13,7 @@ function headers() {
   if (!config.geminiKey) throw new ServiceError('Gemini', 'falta GEMINI_API_KEY en el servidor (aistudio.google.com/apikey).', { status: 503 });
   return { 'x-goog-api-key': config.geminiKey, 'content-type': 'application/json' };
 }
-const gen = async (op, m, body, timeout = 300000) => call('Gemini', op, `${config.geminiBase}/models/${m}:generateContent`, { method: 'POST', headers: headers(), body: JSON.stringify(body) }, { timeout });
+const gen = async (op, m, body, timeout = 300000, attempts = 3) => call('Gemini', op, `${config.geminiBase}/models/${m}:generateContent`, { method: 'POST', headers: headers(), body: JSON.stringify(body) }, { timeout, attempts });
 const reason = (r) => r.candidates?.[0]?.finishReason || r.promptFeedback?.blockReason || 'sin motivo';
 
 export function parseJson(text) {
@@ -40,7 +40,7 @@ export async function ask(o) {
   const m = await model(o.pro ? 'pro' : 'text');
   let last;
   for (let i = 0; i < (o.json ? 3 : 1); i++) {
-    const r = await gen(o.search ? 'búsqueda' : o.youtubeUrl ? 'vídeo' : o.audio ? 'audio' : 'texto', m, body);
+    const r = await gen(o.search ? 'búsqueda' : o.youtubeUrl ? 'vídeo' : o.audio ? 'audio' : 'texto', m, body, o.timeout, o.attempts);
     const c = r.candidates?.[0];
     const text = (c?.content?.parts || []).map((p) => p.text || '').join('').trim();
     if (!text) { last = new ServiceError('Gemini', `respuesta vacía (${reason(r)})`); continue; }
