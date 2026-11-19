@@ -11,10 +11,14 @@ import { db, schema } from "@/server/db";
 import { env } from "@/server/env";
 import { QUEUE_NAME, redisConnection, type JobPayload } from "@/server/queue";
 import { handleImportUrl } from "./handlers/import-url";
+import { handleAnalyze } from "./handlers/analyze";
+import { handleRenderClip } from "./handlers/render-clip";
 import { JobContext } from "./context";
 
 const handlers: Partial<Record<(typeof schema.jobType.enumValues)[number], (ctx: JobContext) => Promise<void>>> = {
   import_url: handleImportUrl,
+  analyze: handleAnalyze,
+  render_clip: handleRenderClip,
 };
 
 const worker = new Worker<JobPayload>(
@@ -33,7 +37,7 @@ const worker = new Worker<JobPayload>(
     }
     try {
       await handler(ctx);
-      if (!ctx.cancelled) await ctx.complete();
+      if (!ctx.cancelled) await ctx.complete(ctx.result);
     } catch (err) {
       if (ctx.cancelled) return;
       console.error(`[worker] trabajo ${row.id} (${row.type}) falló:`, err);

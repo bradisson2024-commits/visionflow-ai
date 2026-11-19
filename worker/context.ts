@@ -8,6 +8,8 @@ type Stage = (typeof schema.jobStage.enumValues)[number];
 export class JobContext {
   readonly abort = new AbortController();
   cancelled = false;
+  /** Resultado que se guarda en jobs.result al completar. */
+  result: Record<string, unknown> | undefined;
   private poll: NodeJS.Timeout;
 
   constructor(public job: Job) {

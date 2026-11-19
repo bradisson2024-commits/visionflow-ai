@@ -13,3 +13,4 @@ storage/
 .DS_Store
 npm-debug.log*
 tests/fixtures/
+models/

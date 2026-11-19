@@ -11,6 +11,12 @@ import { VideoSection } from "@/components/video/video-section";
 import { LiveRefresh } from "@/components/video/live-refresh";
 import { RetryJobButton } from "@/components/video/job-actions";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { AnalysisProgress, AnalyzePanel } from "@/components/clips/analyze-panel";
+import { ClipsSection } from "@/components/clips/clips-section";
+import { TranscriptView } from "@/components/clips/transcript-view";
+import { llmStatus, transcriptionStatus } from "@/server/providers/status";
+import { db, schema } from "@/server/db";
+import { eq } from "drizzle-orm";
 
 const JOB_TYPE_LABEL: Record<string, string> = {
   import_url: "Importar desde enlace",
@@ -32,6 +38,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const { project, videos, clips, jobs } = detail;
   const video = videos[0];
   const importJob = video ? jobs.find((j) => j.videoId === video.id && j.type === "import_url") : undefined;
+  const transcript = video ? await db.query.transcripts.findFirst({ where: eq(schema.transcripts.videoId, video.id) }) : undefined;
+  const analyzeJob = jobs.find((j) => j.type === "analyze");
+  const analyzing = analyzeJob && (analyzeJob.status === "queued" || analyzeJob.status === "running") ? analyzeJob : undefined;
+  const t = transcriptionStatus();
+  const l = llmStatus();
+  const services = { transcription: { ready: t.ready, provider: t.provider, missing: t.missing }, llm: { ready: l.ready, provider: l.provider, missing: l.missing } };
+  const cl = project.settings.clipLength;
   const live = jobs.some((j) => j.status === "queued" || j.status === "running") || (video?.uploadStatus === "uploading" && video.source === "url");
 
   return (
@@ -62,17 +75,59 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             <VideoSection projectId={project.id} video={video} importJob={importJob} />
           </section>
 
+          {video?.uploadStatus === "uploaded" && (
+            <section className="space-y-4">
+              {analyzing ? (
+                <AnalysisProgress job={{ id: analyzing.id, stage: analyzing.stage, progress: analyzing.progress, status: analyzing.status, params: analyzing.params }} />
+              ) : (
+                <>
+                  {analyzeJob?.status === "failed" && (
+                    <div role="alert" className="rounded-2xl border border-bad/30 bg-bad/10 p-4 text-sm">
+                      <p className="font-medium text-bad">El último análisis falló</p>
+                      <p className="mt-1 text-bad/90">{analyzeJob.error}</p>
+                      <div className="mt-3"><RetryJobButton jobId={analyzeJob.id} /></div>
+                    </div>
+                  )}
+                  {video.audioCodec ? (
+                    <AnalyzePanel
+                      projectId={project.id}
+                      videoDuration={video.durationSec ?? 0}
+                      hasTranscript={!!transcript}
+                      hasClips={clips.length > 0}
+                      services={services}
+                      initial={{ preset: cl?.preset, minSec: cl?.minSec, maxSec: cl?.maxSec, maxClips: project.settings.maxClips, language: project.settings.language, aspectRatio: project.settings.aspectRatio, captionStyle: project.settings.captionStyle }}
+                    />
+                  ) : (
+                    <p className="rounded-2xl border border-warn/30 bg-warn/5 p-4 text-sm text-warn">Este video no tiene audio: no se puede transcribir ni analizar. Puedes crear clips manuales.</p>
+                  )}
+                </>
+              )}
+            </section>
+          )}
+
           <section className="rounded-3xl border border-line bg-surface p-5">
             <h2 className="font-display flex items-center gap-2 text-lg font-semibold">
               <Scissors className="size-5 text-ember-2" /> Clips
               <span className="text-sm font-normal text-faint">({clips.length})</span>
             </h2>
-            {clips.length === 0 && (
+            {video?.uploadStatus === "uploaded" ? (
+              <ClipsSection projectId={project.id} clips={clips} jobs={jobs} videoId={video.id} videoDuration={video.durationSec ?? 0} />
+            ) : (
               <p className="mt-4 rounded-2xl border border-dashed border-line px-4 py-10 text-center text-sm text-muted">
-                Aún no hay clips. Aparecerán aquí después de analizar el video.
+                Importa un video para empezar.
               </p>
             )}
           </section>
+
+          {transcript && (
+            <TranscriptView
+              segments={transcript.segments}
+              provider={transcript.provider}
+              model={transcript.model}
+              language={transcript.language}
+              wordCount={transcript.words.length}
+            />
+          )}
         </div>
 
         <aside className="rounded-3xl border border-line bg-surface p-5 lg:self-start">

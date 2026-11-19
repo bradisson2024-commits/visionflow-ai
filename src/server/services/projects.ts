@@ -37,7 +37,7 @@ export async function getProjectDetail(userId: string, projectId: string) {
   const [videos, clips, jobs] = await Promise.all([
     db.query.videos.findMany({ where: eq(schema.videos.projectId, project.id), orderBy: desc(schema.videos.createdAt) }),
     db.query.clips.findMany({ where: eq(schema.clips.projectId, project.id), orderBy: schema.clips.position }),
-    db.query.jobs.findMany({ where: eq(schema.jobs.projectId, project.id), orderBy: desc(schema.jobs.createdAt), limit: 20 }),
+    db.query.jobs.findMany({ where: eq(schema.jobs.projectId, project.id), orderBy: desc(schema.jobs.createdAt), limit: 200 }),
   ]);
   return { project, videos, clips, jobs };
 }

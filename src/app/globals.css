@@ -101,3 +101,12 @@ body {
     transition: none !important;
   }
 }
+
+/* Fuentes de subtítulos (las mismas que usa libass al grabar el video) */
+@font-face { font-family: "Poppins Black"; src: url("/fonts/Poppins-Black.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Poppins ExtraBold"; src: url("/fonts/Poppins-ExtraBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Poppins SemiBold"; src: url("/fonts/Poppins-SemiBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Anton"; src: url("/fonts/Anton-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Bebas Neue"; src: url("/fonts/BebasNeue-Regular.ttf") format("truetype"); font-display: swap; }
+
+input[type="range"] { accent-color: var(--ember); }

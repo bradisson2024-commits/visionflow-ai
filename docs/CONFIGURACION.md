@@ -13,14 +13,14 @@ error explícito; no se simulan resultados.
 | `openai` | `OPENAI_API_KEY` (platform.openai.com → API keys) | Whisper con marcas de tiempo por palabra. Pago por minuto de audio. |
 | `groq` | `GROQ_API_KEY` (console.groq.com) | whisper-large-v3, rápido y barato. |
 | `deepgram` | `DEEPGRAM_API_KEY` (console.deepgram.com) | Nova, con marcas de tiempo por palabra. |
-| `local_whisper` | Python 3 + `pip install faster-whisper` + descarga del modelo (Hugging Face) | Sin coste por uso; usa CPU/GPU del servidor. |
+| `local` (por defecto) | `pip install -r worker/py/requirements.txt` + `bash scripts/download-models.sh [tiny\|base\|small\|medium]` | Whisper con sherpa-onnx en el servidor, sin coste por uso. Los tiempos por palabra son **estimados** dentro de cada frase detectada por voz (los modelos ONNX publicados no exponen tiempos por palabra); para subtítulos con sincronía exacta usa un proveedor en la nube. El modelo `small` es más preciso que `base`. |
 
 ## 2. IA de análisis de momentos (`LLM_PROVIDER`)
 
 | Valor | Necesita |
 |---|---|
-| `anthropic` | `ANTHROPIC_API_KEY` (console.anthropic.com). `LLM_MODEL` opcional. |
-| `openai` | `OPENAI_API_KEY`. `LLM_MODEL` opcional. |
+| `anthropic` (recomendado) | `ANTHROPIC_API_KEY` (console.anthropic.com). Modelo por defecto `claude-opus-5-5` (cambiable con `LLM_MODEL`), razonamiento `LLM_EFFORT=high`, salida JSON validada por esquema y respaldo automático si el modelo rechaza la petición. |
+| `openai` | `OPENAI_API_KEY` + `LLM_MODEL` (nombre del modelo de OpenAI que quieras usar). |
 | `openai_compatible` | `LLM_BASE_URL` + `LLM_MODEL` (+ `LLM_API_KEY` si el servidor lo pide). Sirve para Groq, OpenRouter u Ollama local. |
 
 ## 3. Almacenamiento (`STORAGE_DRIVER`)
@@ -44,3 +44,15 @@ Infraestructura: `DATABASE_URL` (PostgreSQL) y `REDIS_URL`.
 - Protección SSRF: el servidor no descarga desde direcciones privadas o locales. `IMPORT_ALLOW_PRIVATE_HOSTS=true`
   desactiva esa protección y **sólo debe usarse en pruebas**.
 - La descarga la ejecuta el worker (`npm run worker`); sin worker, la importación queda “En cola”.
+
+## 6. Reencuadre inteligente
+
+Usa OpenCV (YuNet) en el worker: `pip install -r worker/py/requirements.txt` y el modelo
+`models/face_detection_yunet_2023mar.onnx` (lo descarga `scripts/download-models.sh`). Si falta, el clip se
+genera con recorte centrado y el aviso queda registrado en el clip (no se oculta).
+
+## 7. Sin clave de IA, ¿qué funciona?
+
+Todo menos la detección automática de momentos: subir/importar, transcribir (local), crear clips manuales,
+editarlos, reencuadrar, subtitular, renderizar y descargar. El botón «Analizar video» queda desactivado con
+el motivo, y aparece «Sólo transcribir».

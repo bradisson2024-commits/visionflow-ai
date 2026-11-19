@@ -1,0 +1,4 @@
+# Dependencias Python del worker (transcripción local y detección de rostros)
+numpy>=2
+sherpa-onnx>=1.12
+opencv-python-headless>=4.10

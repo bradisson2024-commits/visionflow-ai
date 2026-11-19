@@ -77,3 +77,17 @@ analizando audio, transcribiendo, detectando momentos, generando clips, renderiz
 progreso, error, intentos) · `transcripts` (segmentos y palabras con tiempos) · `clips` (tiempos,
 título, motivo, puntuación 0–100 con desglose en 9 criterios, ediciones, estilo de subtítulos, archivos
 generados).
+
+## Pipeline de procesamiento (worker)
+
+1. **Análisis** (`worker/handlers/analyze.ts`): FFmpeg extrae audio (WAV 16 kHz o MP3 en trozos de 10 min) →
+   transcripción con el proveedor configurado → las palabras se agrupan en frases (`analysis/sentences.ts`) →
+   la IA recibe la transcripción completa en frases numeradas y devuelve candidatos como **rangos de frases**
+   con título, tema, gancho, motivo y 9 notas (`analysis/detect.ts`) → el servidor ajusta cada candidato a la
+   duración pedida añadiendo/quitando frases completas, elimina solapamientos, calcula la puntuación ponderada
+   y ordena de mayor a menor.
+2. **Render** (`worker/handlers/render-clip.ts` → `render/render-clip.ts`): detección de rostros a 4 fps
+   (`worker/py/face_track.py`) → plan de cámara con histéresis, mediana, zona muerta y velocidad limitada
+   (`render/reframe.ts`) → expresión de recorte animada en FFmpeg (o pantalla dividida con dos personas) →
+   escala → FPS → subtítulos ASS con libass (`render/subtitles.ts`, fuentes en `assets/fonts`) → H.264/AAC con
+   fundidos de audio de 60–120 ms → miniatura y SRT.

@@ -220,6 +220,27 @@ export type CaptionStyle = {
   wordsPerLine: number;
 };
 
+export type ExportOptions = {
+  resolution: 720 | 1080;
+  quality: "high" | "medium" | "low";
+  fps: "source" | 24 | 30 | 60;
+  /** burned: grabados en el video · srt: archivo aparte · both · none */
+  subtitles: "burned" | "srt" | "both" | "none";
+};
+
+export type RenderInfo = {
+  width: number;
+  height: number;
+  fps: number;
+  durationSec: number;
+  sizeBytes: number;
+  reframe: string;
+  reframeNote: string;
+  facesFound?: number;
+  subtitles: ExportOptions["subtitles"];
+  warnings: string[];
+};
+
 export type ClipEdit = {
   aspectRatio: AspectRatio;
   reframe: "auto" | "center" | "manual";
@@ -228,6 +249,7 @@ export type ClipEdit = {
   zoom?: number;
   volume?: number;
   captions: CaptionStyle;
+  export?: ExportOptions;
 };
 
 export const clipStatus = pgEnum("clip_status", ["suggested", "queued", "rendering", "ready", "failed"]);
@@ -259,6 +281,7 @@ export const clips = pgTable(
     outputKey: text("output_key"),
     subtitleKey: text("subtitle_key"),
     thumbnailKey: text("thumbnail_key"),
+    renderInfo: jsonb("render_info").$type<RenderInfo>(),
     renderedAt: timestamp("rendered_at", { withTimezone: true }),
     ...timestamps,
   },

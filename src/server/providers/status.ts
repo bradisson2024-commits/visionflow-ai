@@ -3,7 +3,17 @@
  * Sólo devuelve si cada servicio está listo y qué variable falta;
  * jamás devuelve el valor de una clave.
  */
+import { existsSync, readdirSync } from "node:fs";
+import path from "node:path";
 import { env } from "../env";
+
+const hasTokens = (dir: string) => {
+  try {
+    return readdirSync(dir).some((f) => f.endsWith("tokens.txt"));
+  } catch {
+    return false;
+  }
+};
 
 export type ServiceStatus = {
   id: string;
@@ -26,8 +36,13 @@ export function transcriptionStatus(): ServiceStatus {
       return { ...base, missing: need([["GROQ_API_KEY", env.GROQ_API_KEY]]), ready: !!env.GROQ_API_KEY, note: "Groq whisper-large-v3, compatible con la API de OpenAI." };
     case "deepgram":
       return { ...base, missing: need([["DEEPGRAM_API_KEY", env.DEEPGRAM_API_KEY]]), ready: !!env.DEEPGRAM_API_KEY, note: "Deepgram Nova con marcas de tiempo por palabra." };
-    case "local_whisper":
-      return { ...base, missing: [], ready: true, note: `faster-whisper en el servidor (modelo "${env.LOCAL_WHISPER_MODEL}"). Requiere Python y el modelo descargado; se verifica al ejecutar.` };
+    case "local": {
+      const missing = [
+        ...(existsSync(path.join(env.LOCAL_WHISPER_MODEL_DIR, "tokens.txt")) || hasTokens(env.LOCAL_WHISPER_MODEL_DIR) ? [] : ["LOCAL_WHISPER_MODEL_DIR (modelo no encontrado; ejecuta scripts/download-models.sh)"]),
+        ...(existsSync(env.LOCAL_VAD_MODEL) ? [] : ["LOCAL_VAD_MODEL (modelo VAD no encontrado)"]),
+      ];
+      return { ...base, missing, ready: missing.length === 0, note: "Whisper local (sherpa-onnx) en el servidor, sin coste por uso. Tiempos por palabra estimados dentro de cada frase detectada por VAD." };
+    }
     default:
       return { ...base, missing: ["TRANSCRIPTION_PROVIDER"], ready: false, note: `Proveedor desconocido: "${p}".` };
   }
@@ -40,7 +55,10 @@ export function llmStatus(): ServiceStatus {
     case "anthropic":
       return { ...base, missing: need([["ANTHROPIC_API_KEY", env.ANTHROPIC_API_KEY]]), ready: !!env.ANTHROPIC_API_KEY, note: "Claude analiza la transcripción, detecta momentos y puntúa los clips." };
     case "openai":
-      return { ...base, missing: need([["OPENAI_API_KEY", env.OPENAI_API_KEY]]), ready: !!env.OPENAI_API_KEY };
+    {
+      const missing = need([["OPENAI_API_KEY", env.OPENAI_API_KEY], ["LLM_MODEL", env.LLM_MODEL]]);
+      return { ...base, missing, ready: missing.length === 0, note: "Modelo de OpenAI indicado en LLM_MODEL." };
+    }
     case "openai_compatible": {
       const missing = need([["LLM_BASE_URL", env.LLM_BASE_URL], ["LLM_MODEL", env.LLM_MODEL]]);
       return { ...base, missing, ready: missing.length === 0, note: "Groq, OpenRouter, Ollama u otro servidor compatible con OpenAI." };

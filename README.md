@@ -10,20 +10,22 @@ puntuación, reencuadre vertical, subtítulos y exportación real con FFmpeg.
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| 1 | Base: arquitectura, diseño, dashboard, navegación, BD, usuarios, proyectos | ✅ Hecha y probada |
-| 2 | Subida real de videos (por partes, reanudable, cancelable), importación por enlace directo, validación FFprobe, almacenamiento, vista previa, descarga del original | ✅ Hecha y probada |
-| 3 | Audio, transcripción, análisis con IA, detección y puntuación de momentos | ⏳ Pendiente (requiere claves API) |
-| 4 | Motor de clips: corte FFmpeg, formatos, reencuadre | ⏳ Pendiente |
-| 5 | Subtítulos sincronizados, estilos, editor | ⏳ Pendiente |
-| 6 | Renderizado final, descarga, exportación múltiple | ⏳ Pendiente |
-| 7 | Pruebas de extremo a extremo con videos reales | ⏳ Pendiente |
+| 1 | Base: arquitectura, diseño, dashboard, navegación, BD, usuarios, proyectos | ✅ Probada |
+| 2 | Subida real (por partes, reanudable, cancelable), importación por enlace directo, FFprobe, almacenamiento | ✅ Probada |
+| 3 | Audio, transcripción (OpenAI / Groq / Deepgram / Whisper local), detección de momentos con IA, puntuación 0–100, clips ordenados | ✅ Transcripción local probada · ⚠️ Detección con IA probada sólo con un proveedor de prueba: falta una clave de IA real |
+| 4 | Corte FFmpeg, 9:16 · 16:9 · 1:1 · 4:5, seguimiento de rostro (YuNet), pantalla dividida, manual | ✅ Probada |
+| 5 | Subtítulos grabados (5 estilos + personalización), editor con línea de tiempo, recorte, edición de palabras | ✅ Probada |
+| 6 | Render con opciones (resolución, calidad, FPS, SRT), descarga individual y ZIP | ✅ Probada |
+| 7 | Pruebas de extremo a extremo | ✅ 59 pruebas automáticas + flujo en navegador móvil |
 
 ## Puesta en marcha
 
-Requisitos: Node 22+, PostgreSQL 16, Redis 7, FFmpeg 6.
+Requisitos: Node 22+, PostgreSQL 16, Redis 7, FFmpeg 6 (con libass), Python 3.10+.
 
 ```bash
 npm install
+pip install -r worker/py/requirements.txt   # transcripción local y detección de rostros
+bash scripts/download-models.sh            # Whisper (base), VAD y detector de rostros
 cp .env.example .env          # edita las claves (ver docs/CONFIGURACION.md)
 docker compose up -d db redis # o: npm run services:start (Linux con servicios del sistema)
 npm run db:migrate

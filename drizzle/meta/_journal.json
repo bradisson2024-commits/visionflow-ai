@@ -15,6 +15,13 @@
       "when": 1795067973456,
       "tag": "0001_video_import",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795123224078,
+      "tag": "0002_clip_render_info",
+      "breakpoints": true
     }
   ]
 }

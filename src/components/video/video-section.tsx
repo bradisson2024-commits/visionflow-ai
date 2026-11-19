@@ -1,4 +1,4 @@
-import { AlertTriangle, Download, Info, Link2, Sparkles } from "lucide-react";
+import { AlertTriangle, Download, Info, Link2 } from "lucide-react";
 import type { Job, Video } from "@/server/db/schema";
 import { env } from "@/server/env";
 import { buttonClass } from "@/components/ui/button";
@@ -111,16 +111,6 @@ export function VideoSection({ projectId, video, importJob }: { projectId: strin
           <Download className="size-3.5" /> Descargar original
         </a>
         <ReplaceVideo projectId={projectId} maxUploadMb={max} />
-      </div>
-      <div className="mt-5 flex gap-3 rounded-2xl border border-line bg-surface-2 p-4">
-        <Sparkles className="mt-0.5 size-5 shrink-0 text-ai" />
-        <div className="text-sm">
-          <p className="font-medium">Siguiente paso: analizar con IA <span className="ml-1 rounded bg-warn/10 px-1.5 py-0.5 text-[11px] text-warn">pendiente · Fase 3</span></p>
-          <p className="mt-1 text-muted">
-            El análisis transcribirá el audio, detectará los momentos con más potencial y propondrá clips ordenados por
-            puntuación. Aún no está construido, por eso no hay botón de analizar.
-          </p>
-        </div>
       </div>
       <p className="mt-3 flex items-center gap-1.5 text-[11px] text-faint">
         <Info className="size-3" /> Metadatos leídos del archivo con FFprobe en el servidor.
