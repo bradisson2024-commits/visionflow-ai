@@ -5,6 +5,8 @@ import { HttpError } from "../http";
 import { enqueueJob } from "../queue";
 import { llmStatus, transcriptionStatus } from "../providers/status";
 import { getOwnedProject } from "./projects";
+import { env } from "../env";
+import { checkOllama } from "../providers/llm/ollama";
 
 export type AnalyzeInput = {
   mode: "full" | "transcribe";
@@ -42,6 +44,10 @@ export async function startAnalysis(userId: string, projectId: string, input: An
   if (input.mode === "full") {
     const l = llmStatus();
     if (!l.ready) throw new HttpError(400, `La IA de análisis no está configurada (${l.provider}). Falta: ${l.missing.join(", ")}. Puedes transcribir igualmente y crear clips manuales.`, { service: "llm" });
+    if (env.LLM_PROVIDER === "ollama") {
+      const problem = await checkOllama();
+      if (problem) throw new HttpError(400, problem, { service: "llm" });
+    }
   }
 
   await db

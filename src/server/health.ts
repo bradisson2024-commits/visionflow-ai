@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import { db } from "./db";
 import { env } from "./env";
 
-export type Check = { id: string; label: string; ok: boolean; detail: string };
+export type Check = { id: string; label: string; ok: boolean; detail: string; optional?: boolean };
 
 function runVersion(bin: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -43,6 +43,11 @@ export async function runHealthChecks(): Promise<Check[]> {
     } catch (e) {
       checks.push({ id, label, ok: false, detail: `No disponible (${(e as Error).message})` });
     }
+  }
+  if (env.LLM_PROVIDER === "ollama") {
+    const { checkOllama } = await import("./providers/llm/ollama");
+    const problem = await checkOllama();
+    checks.push({ id: "ollama", label: "IA local (Ollama)", optional: true, ok: !problem, detail: problem ?? `Lista: modelo «${env.LLM_MODEL || "qwen2.5:7b"}» instalado` });
   }
   return checks;
 }

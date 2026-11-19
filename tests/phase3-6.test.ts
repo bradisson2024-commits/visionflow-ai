@@ -58,7 +58,7 @@ describe("Fase 3 — análisis", () => {
     const r = await c.req(`/api/projects/${projectId}/analyze`, { method: "POST", json: { mode: "full", clipLength: { preset: "short", minSec: 15, maxSec: 35 } } });
     if (r.status === 202) return; // hay un proveedor de IA configurado en este entorno
     expect(r.status).toBe(400);
-    expect(r.body.error).toMatch(/IA de análisis no está configurada/);
+    expect(r.body.error).toMatch(/IA de análisis no está configurada|Ollama/);
   });
 
   it("valida el rango de duración", async () => {

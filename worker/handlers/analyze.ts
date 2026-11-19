@@ -79,9 +79,10 @@ export async function handleAnalyze(ctx: JobContext) {
     const detected = await detectMoments(
       llm,
       sentences,
-      { minSec: p.clipLength.minSec, maxSec: p.clipLength.maxSec, maxClips: p.maxClips, language: transcript.language },
+      { minSec: p.clipLength.minSec, maxSec: p.clipLength.maxSec, maxClips: p.maxClips, language: transcript.language, windowWords: env.LLM_WINDOW_WORDS },
       video.durationSec ?? sentences[sentences.length - 1].e,
       ctx.signal,
+      (done, total) => ctx.update("detecting_moments", 60 + (done / total) * 28).catch(() => {}),
     );
     if (detected.clips.length === 0)
       throw new Error(`La IA no encontró momentos que cumplan la duración pedida (${p.clipLength.minSec}–${p.clipLength.maxSec} s) con frases completas. Prueba otro rango de duración.`);

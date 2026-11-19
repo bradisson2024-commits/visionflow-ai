@@ -12,11 +12,18 @@ puntuación, reencuadre vertical, subtítulos y exportación real con FFmpeg.
 |---|---|---|
 | 1 | Base: arquitectura, diseño, dashboard, navegación, BD, usuarios, proyectos | ✅ Probada |
 | 2 | Subida real (por partes, reanudable, cancelable), importación por enlace directo, FFprobe, almacenamiento | ✅ Probada |
-| 3 | Audio, transcripción (OpenAI / Groq / Deepgram / Whisper local), detección de momentos con IA, puntuación 0–100, clips ordenados | ✅ Transcripción local probada · ⚠️ Detección con IA probada sólo con un proveedor de prueba: falta una clave de IA real |
+| 3 | Audio, transcripción (OpenAI / Groq / Deepgram / Whisper local), detección de momentos con IA (Ollama gratis / Claude / OpenAI), puntuación 0–100, clips ordenados | ✅ Transcripción local probada · ⚠️ Detección probada con un servidor Ollama simulado: falta probarla con un modelo real |
 | 4 | Corte FFmpeg, 9:16 · 16:9 · 1:1 · 4:5, seguimiento de rostro (YuNet), pantalla dividida, manual | ✅ Probada |
 | 5 | Subtítulos grabados (5 estilos + personalización), editor con línea de tiempo, recorte, edición de palabras | ✅ Probada |
 | 6 | Render con opciones (resolución, calidad, FPS, SRT), descarga individual y ZIP | ✅ Probada |
 | 7 | Pruebas de extremo a extremo | ✅ 59 pruebas automáticas + flujo en navegador móvil |
+
+## Modo 100 % gratis
+
+- Transcripción: Whisper local (`TRANSCRIPTION_PROVIDER=local`).
+- Detección de momentos: modelo local con Ollama (`LLM_PROVIDER=ollama`, `ollama pull qwen2.5:7b`).
+
+Ninguna de las dos usa claves ni cobra por uso; usan la CPU/RAM de tu equipo. Ver `docs/CONFIGURACION.md`.
 
 ## Puesta en marcha
 

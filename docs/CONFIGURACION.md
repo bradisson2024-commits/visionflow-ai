@@ -17,8 +17,23 @@ error explícito; no se simulan resultados.
 
 ## 2. IA de análisis de momentos (`LLM_PROVIDER`)
 
+### Opción gratuita: Ollama (recomendada si no quieres pagar)
+
+1. Instala Ollama desde **ollama.com** (Windows, Mac o Linux) y ábrelo.
+2. Descarga el modelo una sola vez: `ollama pull qwen2.5:7b` (≈ 4,7 GB; necesita unos 8 GB de RAM).
+   Con 16 GB de RAM o más, `ollama pull qwen2.5:14b` da mejores resultados (`LLM_MODEL=qwen2.5:14b`).
+3. En `.env`: `LLM_PROVIDER=ollama` (es el valor por defecto de `.env.example`).
+4. En **Ajustes → Estado del sistema** aparece «IA local (Ollama): Lista».
+
+Funciona sin internet y sin coste por uso. Es más lento que la nube (en CPU, varios minutos por video) y
+un modelo pequeño elige peor los momentos que los modelos grandes de pago. Las transcripciones largas se
+analizan por partes (`LLM_WINDOW_WORDS`, 2500 palabras por defecto) para que quepan en el modelo.
+
+### Opciones de pago (en la nube)
+
 | Valor | Necesita |
 |---|---|
+| `ollama` | Nada de pago: Ollama abierto en `OLLAMA_URL` con el modelo `LLM_MODEL` descargado. |
 | `anthropic` (recomendado) | `ANTHROPIC_API_KEY` (console.anthropic.com). Modelo por defecto `claude-opus-5-5` (cambiable con `LLM_MODEL`), razonamiento `LLM_EFFORT=high`, salida JSON validada por esquema y respaldo automático si el modelo rechaza la petición. |
 | `openai` | `OPENAI_API_KEY` + `LLM_MODEL` (nombre del modelo de OpenAI que quieras usar). |
 | `openai_compatible` | `LLM_BASE_URL` + `LLM_MODEL` (+ `LLM_API_KEY` si el servidor lo pide). Sirve para Groq, OpenRouter u Ollama local. |

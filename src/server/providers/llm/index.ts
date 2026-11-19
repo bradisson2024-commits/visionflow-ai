@@ -3,6 +3,7 @@ import { llmStatus } from "../status";
 import { ProviderConfigError } from "../transcription/types";
 import { anthropicProvider } from "./anthropic";
 import { openAICompatibleProvider } from "./openai";
+import { ollamaProvider } from "./ollama";
 import type { LlmProvider } from "./types";
 
 export function getLlm(): LlmProvider {
@@ -13,6 +14,8 @@ export function getLlm(): LlmProvider {
       return anthropicProvider();
     case "openai":
       return openAICompatibleProvider({ id: "openai", baseUrl: "https://api.openai.com/v1", apiKey: env.OPENAI_API_KEY, model: env.LLM_MODEL });
+    case "ollama":
+      return ollamaProvider();
     case "openai_compatible":
       return openAICompatibleProvider({ id: "openai_compatible", baseUrl: env.LLM_BASE_URL, apiKey: env.LLM_API_KEY, model: env.LLM_MODEL });
     default:

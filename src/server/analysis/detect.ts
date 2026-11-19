@@ -128,15 +128,49 @@ export function fitToDuration(sentences: Sentence[], a: number, b: number, minSe
   return [a, b];
 }
 
-export async function detectMoments(llm: LlmProvider, sentences: Sentence[], opts: DetectOptions, totalSec: number, signal?: AbortSignal) {
+/** Divide las frases en ventanas de ~N palabras con solapamiento (para modelos con poco contexto). */
+export function windows(sentences: Sentence[], maxWords: number): Sentence[][] {
+  if (!maxWords || maxWords <= 0) return [sentences];
+  const out: Sentence[][] = [];
+  let i = 0;
+  while (i < sentences.length) {
+    let words = 0;
+    let j = i;
+    while (j < sentences.length && (words < maxWords || j === i)) words += sentences[j++].text.split(/\s+/).length;
+    out.push(sentences.slice(i, j));
+    if (j >= sentences.length) break;
+    // solapa ~15 % para no perder momentos en el borde
+    const back = Math.max(1, Math.floor((j - i) * 0.15));
+    i = Math.max(i + 1, j - back);
+  }
+  return out;
+}
+
+export async function detectMoments(
+  llm: LlmProvider,
+  sentences: Sentence[],
+  opts: DetectOptions & { windowWords?: number },
+  totalSec: number,
+  signal?: AbortSignal,
+  onWindow?: (done: number, total: number) => void | Promise<void>,
+) {
   if (sentences.length === 0) throw new Error("La transcripción está vacía: no se detectó voz en el video.");
-  const result = await llm.generateJson({
-    system: SYSTEM,
-    user: buildUserPrompt(sentences, opts, totalSec),
-    schema: analysisSchema,
-    schemaName: "clip_analysis",
-    signal,
-  });
+  const parts = windows(sentences, opts.windowWords ?? 0);
+  const result: z.infer<typeof analysisSchema> = { topics: [], clips: [] };
+  for (let k = 0; k < parts.length; k++) {
+    const r = await llm.generateJson({
+      system: SYSTEM,
+      user: (parts.length > 1 ? `Este es el fragmento ${k + 1} de ${parts.length} del video; elige sólo momentos de este fragmento.\n` : "") + buildUserPrompt(parts[k], opts, totalSec),
+      schema: analysisSchema,
+      schemaName: "clip_analysis",
+      signal,
+    });
+    result.topics.push(...r.topics);
+    result.clips.push(...r.clips);
+    await onWindow?.(k + 1, parts.length);
+  }
+  // Los mejores primero para que, ante solapamientos, se conserve el de mayor nota.
+  result.clips.sort((a, b) => overallScore(b.scores as ClipScoreBreakdown) - overallScore(a.scores as ClipScoreBreakdown));
 
   const accepted: DetectedClip[] = [];
   const rejected: { title: string; why: string }[] = [];

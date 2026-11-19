@@ -59,6 +59,8 @@ export function llmStatus(): ServiceStatus {
       const missing = need([["OPENAI_API_KEY", env.OPENAI_API_KEY], ["LLM_MODEL", env.LLM_MODEL]]);
       return { ...base, missing, ready: missing.length === 0, note: "Modelo de OpenAI indicado en LLM_MODEL." };
     }
+    case "ollama":
+      return { ...base, missing: [], ready: true, note: `GRATIS: modelo local «${env.LLM_MODEL || "qwen2.5:7b"}» con Ollama en ${env.OLLAMA_URL}. Se comprueba que esté abierto antes de analizar.` };
     case "openai_compatible": {
       const missing = need([["LLM_BASE_URL", env.LLM_BASE_URL], ["LLM_MODEL", env.LLM_MODEL]]);
       return { ...base, missing, ready: missing.length === 0, note: "Groq, OpenRouter, Ollama u otro servidor compatible con OpenAI." };

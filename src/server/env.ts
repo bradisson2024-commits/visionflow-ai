@@ -35,6 +35,10 @@ export const env = {
   LLM_BASE_URL: read("LLM_BASE_URL"),
   LLM_API_KEY: read("LLM_API_KEY"),
   LLM_EFFORT: read("LLM_EFFORT", "high"),
+  /** Palabras por ventana de análisis (0 = toda la transcripción de una vez). */
+  LLM_WINDOW_WORDS: Number(read("LLM_WINDOW_WORDS", read("LLM_PROVIDER", "anthropic") === "ollama" ? "2500" : "0")),
+  OLLAMA_URL: read("OLLAMA_URL", "http://localhost:11434"),
+  OLLAMA_NUM_CTX: Number(read("OLLAMA_NUM_CTX", "16384")),
 
   FFMPEG_PATH: read("FFMPEG_PATH", "ffmpeg"),
   FFPROBE_PATH: read("FFPROBE_PATH", "ffprobe"),
