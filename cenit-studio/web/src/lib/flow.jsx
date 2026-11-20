@@ -1,7 +1,7 @@
 // Google Flow: el botón «Flow» sólo abre Flow; «Prompt en inglés» entrega el prompt (estilo y reparto incluidos,
 // traducido al inglés) para pegarlo en Flow. La imagen resultante se sube con «Subir imagen».
-import { useState } from 'react';
-import { api } from './api.js';
+import { useEffect, useState } from 'react';
+import { api, token } from './api.js';
 import { Action, Modal, useToast } from '../components/ui.jsx';
 
 export const FLOW_URL = 'https://flow.google.com/';
@@ -43,4 +43,33 @@ export function PromptButton({ p, sceneIds = [], charIds = [], className = 'btn 
       )}
     </>
   );
+}
+
+// ------------------------------------------------------------ automático (extensión «Cenit · Flow»)
+export const flowInstalled = () => document.documentElement.dataset.cenitFlow === '1';
+
+/** Envía las imágenes a la extensión, que las crea en Google Flow y las coloca solas en Cenit. */
+export function AutoFlowButton({ p, sceneIds = [], charIds = [], className = 'btn sm primary flow', children = 'Auto Flow', disabled }) {
+  return (
+    <Action className={className} disabled={disabled} busyText="Enviando…" title="Crea la imagen en Google Flow con tu cuenta y la coloca aquí sola (necesita la extensión «Cenit · Flow»)" run={async () => {
+      if (!flowInstalled()) return 'Para el modo automático instala la extensión «Cenit · Flow» (carpeta cenit-studio/extension-flow) y pulsa F5.';
+      const { items } = await api(`/api/proyectos/${p.id}/flow`, { method: 'POST', body: { sceneIds, charIds } });
+      window.postMessage({ source: 'cenit', type: 'flow:run', base: location.origin, token: await token(), items }, location.origin);
+      return `${items.length} imagen(es) enviadas a Google Flow. Deja abierta la pestaña de Flow: aparecerán aquí solas.`;
+    }}>{children}</Action>
+  );
+}
+
+/** Avisos de la extensión y recarga del proyecto cuando llega cada imagen. */
+export function useFlowProgress(reload) {
+  const toast = useToast();
+  useEffect(() => {
+    const on = (e) => {
+      if (e.source !== window || e.data?.source !== 'cenit-ext' || e.data.type !== 'flow:progress') return;
+      if (e.data.message) toast(e.data.message, e.data.status === 'error');
+      if (e.data.status === 'lista') reload();
+    };
+    window.addEventListener('message', on);
+    return () => window.removeEventListener('message', on);
+  }, [reload, toast]);
 }

@@ -130,11 +130,18 @@ Para comprobarlos usa «Probar conexión real» en Ajustes.
 
 ## Imágenes con Google Flow (gratis con tu cuenta de Google)
 
-Si tu clave de Gemini no tiene facturación, Google no genera imágenes por API. Hazlas en Google Flow:
+Si tu clave de Gemini no tiene facturación, Google no genera imágenes por API. Usa Google Flow:
 
-1. **Prompt en inglés** (en cada escena o personaje, o «Prompts en inglés (sin imagen)» / «Prompts del reparto» para todos): muestra y copia el prompt traducido al inglés, con el estilo y el reparto incluidos.
-2. **Flow**: abre `flow.google.com`. Pega el prompt, genera la imagen y descárgala.
-3. **Subir imagen**: la imagen se ajusta al formato del vídeo y queda en su escena o personaje.
+**Automático (extensión «Cenit · Flow»)**
+1. En Chrome abre `chrome://extensions`, activa **Modo de desarrollador** → **Cargar descomprimida** → carpeta `cenit-studio/extension-flow`.
+2. Abre `flow.google.com`, inicia sesión y abre un proyecto en modo imagen.
+3. En Cenit pulsa **Auto Flow** (una escena o un personaje), **Crear todas en Flow (auto)** o **Referencias en Flow (auto)**.
+
+La extensión escribe y pulsa en Flow con teclado y ratón reales (Chrome muestra el aviso «Cenit · Flow está depurando este navegador» mientras trabaja), espera cada imagen y la sube a su escena. Si no reconoce el cuadro o el botón de Flow, pide un clic en cada uno la primera vez y lo recuerda; pulsar el icono de la extensión en Flow olvida lo aprendido. Si la imagen no se puede descargar, la captura en alta resolución.
+
+**Manual**: **Prompt en inglés** copia el prompt, **Flow** abre Google Flow y **Subir imagen** coloca la imagen descargada.
+
+Prueba: `node tests/flow-ext.e2e.mjs` (Chromium con la extensión y dos dobles de Flow que sólo aceptan teclado y ratón reales).
 
 ## Windows: abrir con un icono
 Ejecuta una vez `windows\Crear accesos directos.bat`. Crea en el Escritorio **Cenit Studio** (enciende el servidor sin ventanas y abre la página) y **Detener Cenit Studio**, y hace que el servidor se encienda solo al iniciar Windows. Si el servidor se cierra por un error, se vuelve a arrancar; el registro queda en `windows\cenit.log`.

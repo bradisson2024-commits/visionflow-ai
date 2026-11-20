@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, fileUrl, useData } from '../../lib/api.js';
 import { Action, Modal, Status, useToast } from '../../components/ui.jsx';
-import { FlowButton, PromptButton } from '../../lib/flow.jsx';
+import { FlowButton, PromptButton, AutoFlowButton, useFlowProgress } from '../../lib/flow.jsx';
 
 const RHYTHM = [['rapido', 'Rápido', '≈ 4 s por imagen'], ['normal', 'Normal', '≈ 5 s por imagen'], ['lento', 'Lento', 'configurable']];
 const KINDS = ['personaje', 'animal', 'objeto', 'escenario'];
@@ -44,7 +44,7 @@ function Casting({ p, reload }) {
   const upload = async (c, file) => { const fd = new FormData(); fd.append('file', file); try { await api(`/api/proyectos/${p.id}/reparto/${c.id}/subir`, { method: 'POST', form: fd }); await reload(); } catch (e) { toast(e.message, true); } };
   return (
     <div className="card">
-      <div className="row between"><h2 style={{ margin: 0 }}>Casting y Referencias</h2><div className="row"><FlowButton />{p.cast.length > 0 && <PromptButton p={p} charIds={p.cast.map((c) => c.id)}>Prompts del reparto</PromptButton>}<button className="btn sm" onClick={() => setEdit({ kind: 'personaje', name: '', confirmed: true })}>＋ Añadir</button></div></div>
+      <div className="row between"><h2 style={{ margin: 0 }}>Casting y Referencias</h2><div className="row"><FlowButton />{p.cast.some((c) => !c.ref_path) && <AutoFlowButton p={p} charIds={p.cast.filter((c) => !c.ref_path).map((c) => c.id)}>Referencias en Flow (auto)</AutoFlowButton>}{p.cast.length > 0 && <PromptButton p={p} charIds={p.cast.map((c) => c.id)}>Prompts del reparto</PromptButton>}<button className="btn sm" onClick={() => setEdit({ kind: 'personaje', name: '', confirmed: true })}>＋ Añadir</button></div></div>
       <p className="dim">Se detectan automáticamente al dividir el guion. Confírmalos y añade una imagen de referencia: se usa como condicionamiento visual en todas las escenas donde aparecen, para que no cambien de aspecto.</p>
       {!p.cast.length && <p className="muted">Aún no hay reparto. Divide el guion en escenas o añade personajes a mano.</p>}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
@@ -62,6 +62,7 @@ function Casting({ p, reload }) {
                 <button className="btn sm" onClick={() => setEdit(c)}>Editar</button>
                 <Action className="btn sm" busyText="Generando…" run={async () => { await api(`/api/proyectos/${p.id}/reparto/${c.id}/generar`, { method: 'POST' }); await reload(); return 'Referencia generada.'; }}>Generar referencia</Action>
                 <FlowButton />
+                <AutoFlowButton p={p} charIds={[c.id]} />
                 <PromptButton p={p} charIds={[c.id]} />
                 <label className="btn sm">Subir imagen<input type="file" accept="image/*" hidden onChange={(e) => e.target.files[0] && upload(c, e.target.files[0])} /></label>
                 {c.ref_path && <Action className="btn sm" run={async () => { await api(`/api/proyectos/${p.id}/reparto/${c.id}/ampliar`, { method: 'POST' }); await reload(); return 'Referencia ampliada 2×.'; }}>Ampliar 2×</Action>}
@@ -116,6 +117,7 @@ function SceneCard({ p, s, reload, cast }) {
         <button className="btn sm" onClick={() => { setForm({ anim_prompt: s.anim_prompt, mode: s.anim_mode === 'ninguna' ? 'camara' : s.anim_mode }); setAnim(true); }}>Prompt anim</button>
         <Action className="btn sm primary" busyText="En cola…" run={async () => { await api(`/api/proyectos/${p.id}/imagenes`, { method: 'POST', body: { sceneIds: [s.id] } }); await reload(); }}>{s.image_status === 'error' ? 'Reintentar' : s.image_path ? 'Regenerar' : 'Generar'}</Action>
         <FlowButton />
+        <AutoFlowButton p={p} sceneIds={[s.id]} />
         <PromptButton p={p} sceneIds={[s.id]} />
         <label className="btn sm" title="Sube una imagen hecha por ti (Google Flow, Gemini…). Se ajusta al formato del vídeo.">Subir imagen<input type="file" accept="image/*" hidden onChange={async (e) => {
           const f = e.target.files[0]; e.target.value = '';
@@ -167,6 +169,7 @@ export default function Contenido({ p, reload, patch }) {
   const [rhythm, setRhythm] = useState(p.rhythm);
   const [est, setEst] = useState(null);
   const toast = useToast();
+  useFlowProgress(reload);
   useEffect(() => { setScript(p.script || ''); }, [p.script]);
   useEffect(() => { setIdea(p.idea || ''); }, [p.idea]);
   useEffect(() => { api(`/api/proyectos/${p.id}/estimacion?recalcular=1`).then(setEst).catch(() => {}); }, [p.id, p.script, p.rhythm.seconds]);
@@ -229,7 +232,8 @@ export default function Contenido({ p, reload, patch }) {
           <div className="row">
             <span className="dim">{done}/{p.scenes.length} imágenes</span>
             <FlowButton className="btn flow">Abrir Flow</FlowButton>
-            <PromptButton p={p} className="btn primary flow" disabled={!pendingImgs} sceneIds={p.scenes.filter((s) => s.image_status !== 'lista').map((s) => s.id)}>Prompts en inglés (sin imagen)</PromptButton>
+            <AutoFlowButton p={p} className="btn primary flow" disabled={!pendingImgs} sceneIds={p.scenes.filter((s) => s.image_status !== 'lista').map((s) => s.id)}>Crear todas en Flow (auto)</AutoFlowButton>
+            <PromptButton p={p} className="btn" disabled={!pendingImgs} sceneIds={p.scenes.filter((s) => s.image_status !== 'lista').map((s) => s.id)}>Prompts en inglés (sin imagen)</PromptButton>
             <Action className="btn" disabled={!pendingImgs || imgsRunning > 0} busyText="En cola…" run={async () => { const r = await api(`/api/proyectos/${p.id}/imagenes`, { method: 'POST', body: {} }); await reload(); return `${r.queued} imágenes en cola.`; }}>Generar todas</Action>
             <Action className="btn" disabled={!p.scenes.some((s) => s.image_status === 'lista')} run={async () => { const ids = p.scenes.filter((s) => s.image_status === 'lista').map((s) => s.id); const mode = confirm('¿Animar todas con Veo (consume créditos)? Pulsa Cancelar para usar movimiento de cámara gratuito.') ? 'veo' : 'camara'; await api(`/api/proyectos/${p.id}/animar`, { method: 'POST', body: { sceneIds: ids, mode } }); await reload(); return 'Animaciones en cola.'; }}>Animar todas</Action>
           </div>
