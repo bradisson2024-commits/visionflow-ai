@@ -4,7 +4,10 @@ import { ArrowRight, AudioLines, Download, Scissors, Sparkles, Upload } from "lu
 import { requirePageUser } from "@/server/auth/session";
 import { listProjects } from "@/server/services/projects";
 import { PageHeader } from "@/components/shell/page-header";
-import { CreateProjectForm } from "@/components/projects/create-project-form";
+import { QuickClipForm } from "@/components/projects/quick-clip-form";
+import { llmStatus } from "@/server/providers/status";
+import { env } from "@/server/env";
+import { checkOllama } from "@/server/providers/llm/ollama";
 import { ProjectCard } from "@/components/projects/project-card";
 import { ServicesPanel } from "@/components/settings/services-panel";
 
@@ -22,6 +25,10 @@ export default async function DashboardPage() {
   const user = await requirePageUser();
   const projects = await listProjects(user.id);
   const recent = projects.slice(0, 6);
+  const l = llmStatus();
+  const ollamaProblem = l.ready && env.LLM_PROVIDER === "ollama" ? await checkOllama() : null;
+  const llmReady = l.ready && !ollamaProblem;
+  const llmMissing = ollamaProblem ?? `falta ${l.missing.join(", ")}`;
 
   return (
     <>
@@ -29,14 +36,14 @@ export default async function DashboardPage() {
 
       <section className="filmstrip relative overflow-hidden rounded-3xl border border-line bg-surface p-5 sm:p-7">
         <h2 className="font-display max-w-xl text-2xl font-semibold leading-tight sm:text-3xl">
-          Un video largo entra. <span className="forge-text">Clips listos para redes</span> salen.
+          Pega un video largo. <span className="forge-text">Recibe sus clips más virales.</span>
         </h2>
         <p className="mt-2 max-w-xl text-sm text-muted">
-          Crea un proyecto e importa tu video. La IA lo transcribe, encuentra los momentos con una idea completa y los
-          convierte en clips verticales con subtítulos.
+          La IA transcribe el video, encuentra los momentos con más potencial (con una idea completa, no cortes
+          al azar) y los ordena de mayor a menor puntuación, listos en vertical con subtítulos.
         </p>
-        <div className="mt-5 max-w-xl">
-          <CreateProjectForm />
+        <div className="mt-5 max-w-2xl">
+          <QuickClipForm llmReady={llmReady} llmMissing={llmMissing} />
         </div>
         <ol className="mt-7 grid grid-cols-5 gap-1.5 sm:gap-3" aria-label="Flujo de trabajo">
           {pipeline.map(({ icon: Icon, label, hint }, i) => (

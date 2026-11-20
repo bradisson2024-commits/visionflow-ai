@@ -49,16 +49,25 @@ analizan por partes (`LLM_WINDOW_WORDS`, 2500 palabras por defecto) para que que
 `FFMPEG_PATH`, `FFPROBE_PATH` (por defecto los del sistema), `WORKER_CONCURRENCY`, `MAX_UPLOAD_MB`.
 Infraestructura: `DATABASE_URL` (PostgreSQL) y `REDIS_URL`.
 
-## 5. Importación por enlace
+## 5. Importación por enlace (YouTube y otras plataformas)
 
-- Se aceptan enlaces de **descarga directa** a archivos de video (servidor propio, S3/R2, Dropbox o Google
-  Drive compartidos públicamente; los enlaces de “compartir” de Dropbox/Drive/OneDrive se convierten
-  automáticamente).
-- Los enlaces de YouTube, TikTok, Instagram, Facebook, X, Twitch y Vimeo se rechazan con una explicación:
-  sus términos prohíben descargar con herramientas externas (regla 17 del encargo).
-- Protección SSRF: el servidor no descarga desde direcciones privadas o locales. `IMPORT_ALLOW_PRIVATE_HOSTS=true`
-  desactiva esa protección y **sólo debe usarse en pruebas**.
-- La descarga la ejecuta el worker (`npm run worker`); sin worker, la importación queda “En cola”.
+- **Pegar un enlace → clips virales**: en el inicio, pega el enlace y pulsa «Obtener clips virales». Se crea el
+  proyecto (con el título del video), se descarga, se analiza automáticamente y los clips aparecen ordenados
+  por puntuación.
+- **YouTube, TikTok, Instagram, Facebook, X, Twitch, Vimeo** se descargan con **yt-dlp**
+  (`pip install -r worker/py/requirements.txt`). El usuario debe confirmar que tiene derecho a usar el video.
+  ⚠️ Descargar de estas plataformas puede ir contra sus términos de uso; es decisión del operador.
+  Para desactivarlo: `PLATFORM_IMPORT_ENABLED=false`.
+- **YouTube bloquea a menudo las descargas desde servidores en la nube** («confirma que no eres un bot»).
+  Desde el computador de casa suele funcionar. Si no, exporta las cookies de tu navegador (formato Netscape,
+  con una extensión tipo «Get cookies.txt») y configura `YTDLP_COOKIES_FILE=/ruta/cookies.txt`.
+  Mantén yt-dlp actualizado (`pip install -U yt-dlp`): YouTube cambia a menudo.
+- Calidad descargada: hasta 1080p MP4. Duración máxima: `MAX_IMPORT_MINUTES` (240 por defecto).
+- **Enlaces directos** (Dropbox, Google Drive, OneDrive compartidos públicamente, o un .mp4 en un servidor)
+  se descargan sin yt-dlp; los enlaces de compartir se convierten en descarga directa automáticamente.
+- Protección SSRF: los enlaces directos no pueden apuntar a direcciones privadas o locales.
+  `IMPORT_ALLOW_PRIVATE_HOSTS=true` la desactiva y **sólo debe usarse en pruebas**.
+- La descarga la ejecuta el worker (`npm run worker`); sin worker, la importación queda «En cola».
 
 ## 6. Reencuadre inteligente
 

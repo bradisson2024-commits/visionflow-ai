@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { cn } from "@/lib/cn";
 import { formatBytes, formatDuration } from "@/lib/format";
-import { ACCEPT_ATTR, checkVideoFile, CHUNK_SIZE } from "@/lib/media-rules";
+import { ACCEPT_ATTR, checkVideoFile, CHUNK_SIZE, DEFAULT_AUTO_ANALYZE, platformOf } from "@/lib/media-rules";
 
 type LocalMeta = { duration: number | null; width: number | null; height: number | null };
 type Phase =
@@ -74,6 +74,9 @@ export function VideoImporter({
   const [link, setLink] = useState("");
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [rights, setRights] = useState(false);
+  const [autoAnalyze, setAutoAnalyze] = useState(true);
+  const linkPlatform = platformOf(link);
   const inputRef = useRef<HTMLInputElement>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const cancelledRef = useRef(false);
@@ -189,7 +192,7 @@ export function VideoImporter({
     const r = await fetch(`/api/projects/${projectId}/imports`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url: link }),
+      body: JSON.stringify({ url: link, confirmRights: rights, autoAnalyze: autoAnalyze ? DEFAULT_AUTO_ANALYZE : undefined }),
     });
     const b = await r.json().catch(() => ({}));
     setLinkBusy(false);
@@ -342,10 +345,9 @@ export function VideoImporter({
         </label>
       ) : (
         <form onSubmit={importLink} className="rounded-2xl border border-line bg-surface-2 p-4">
-          <label htmlFor="video-link" className="text-sm font-medium">Enlace de descarga directa del video</label>
+          <label htmlFor="video-link" className="text-sm font-medium">Enlace del video</label>
           <p className="mt-1 text-xs text-faint">
-            Funciona con enlaces a archivos de video (tu servidor, almacenamiento en la nube, Dropbox o Google Drive compartidos públicamente).
-            YouTube, TikTok, Instagram y similares prohíben la descarga externa en sus términos: sube tu archivo original.
+            YouTube (también Shorts), TikTok, Instagram, Vimeo… o un archivo en Google Drive, Dropbox o tu servidor.
           </p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <input
@@ -358,10 +360,20 @@ export function VideoImporter({
               placeholder="https://…/mi-video.mp4"
               className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-base outline-none focus:border-ember/60 md:text-sm"
             />
-            <Button type="submit" variant="primary" disabled={linkBusy || !link.trim()}>
+            <Button type="submit" variant="primary" disabled={linkBusy || !link.trim() || (!!linkPlatform && !rights)}>
               {linkBusy ? <Loader2 className="size-4 animate-spin" /> : <Link2 className="size-4" />} Importar
             </Button>
           </div>
+          {linkPlatform && (
+            <label className="mt-3 flex items-start gap-2 text-xs text-muted">
+              <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-[var(--ember)]" />
+              Confirmo que tengo derecho a usar este video de {linkPlatform} (es mío o tengo permiso). Descargarlo puede ir contra los términos de {linkPlatform}: la responsabilidad es mía.
+            </label>
+          )}
+          <label className="mt-2 flex items-center gap-2 text-xs text-muted">
+            <input type="checkbox" checked={autoAnalyze} onChange={(e) => setAutoAnalyze(e.target.checked)} className="size-4 accent-[var(--ember)]" />
+            Buscar los clips más virales automáticamente al terminar (30–60 s, 9:16, subtítulos virales)
+          </label>
           {linkError && (
             <p role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-bad/30 bg-bad/10 p-3 text-sm text-bad">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" /> {linkError}

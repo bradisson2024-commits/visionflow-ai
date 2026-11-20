@@ -96,6 +96,49 @@ describe("Ollama (servidor falso)", () => {
     for (const cl of d.clips) expect(cl.endSec - cl.startSec).toBeGreaterThanOrEqual(12 * 0.85);
   });
 
+  it("flujo de un paso: enlace → proyecto con el título del video → análisis automático → clips", async (ctx) => {
+    if (!enabled) ctx.skip();
+    // Servidor local que sirve el video con voz (hace de "enlace" del usuario)
+    const file = path.join(__dirname, "fixtures", "podcast-es.mp4");
+    const vs = http.createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "video/mp4" });
+      res.end(readFileSync(file));
+    });
+    await new Promise<void>((r) => vs.listen(0, "127.0.0.1", r));
+    const url = `http://127.0.0.1:${(vs.address() as any).port}/Mi%20podcast%20episodio%207.mp4`;
+    try {
+      const r = await c.req("/api/quick-import", {
+        method: "POST",
+        json: { url, autoAnalyze: { mode: "full", clipLength: { preset: "short", minSec: 12, maxSec: 30 }, maxClips: 5, language: "es", aspectRatio: "9:16", captionStyle: "viral", reuseTranscript: true } },
+      });
+      expect(r.status).toBe(202);
+      let d: any;
+      for (let i = 0; i < 300; i++) {
+        d = (await c.req(`/api/projects/${r.body.projectId}`)).body;
+        const a = d.jobs.find((x: any) => x.type === "analyze");
+        if (a && ["completed", "failed"].includes(a.status)) break;
+        await new Promise((res) => setTimeout(res, 700));
+      }
+      expect(d.project.name).toBe("Mi podcast episodio 7");
+      const imp = d.jobs.find((x: any) => x.type === "import_url");
+      expect(imp.result.autoAnalyze).toBe("queued");
+      const an = d.jobs.find((x: any) => x.type === "analyze");
+      expect(an.error).toBeNull();
+      expect(d.clips.length).toBeGreaterThan(0);
+      expect(d.project.status).toBe("ready");
+    } finally {
+      vs.close();
+    }
+  });
+
+  it("si el enlace no es válido no deja un proyecto vacío", async (ctx) => {
+    if (!enabled) ctx.skip();
+    const before = (await c.req("/api/projects")).body.projects.length;
+    const r = await c.req("/api/quick-import", { method: "POST", json: { url: "https://www.youtube.com/watch?v=x" } });
+    expect(r.status).toBe(400); // falta confirmar derechos
+    expect((await c.req("/api/projects")).body.projects.length).toBe(before);
+  });
+
   it("si falta el modelo, avisa antes de encolar con el comando para instalarlo", async (ctx) => {
     if (!enabled) ctx.skip();
     mode = "missing-model";

@@ -40,6 +40,11 @@ export const env = {
   OLLAMA_URL: read("OLLAMA_URL", "http://localhost:11434"),
   OLLAMA_NUM_CTX: Number(read("OLLAMA_NUM_CTX", "16384")),
 
+  /** Permite importar enlaces de YouTube y otras plataformas con yt-dlp. */
+  PLATFORM_IMPORT_ENABLED: read("PLATFORM_IMPORT_ENABLED", "true") === "true",
+  YTDLP_PATH: read("YTDLP_PATH", "yt-dlp"),
+  YTDLP_COOKIES_FILE: read("YTDLP_COOKIES_FILE"),
+  MAX_IMPORT_MINUTES: Number(read("MAX_IMPORT_MINUTES", "240")),
   FFMPEG_PATH: read("FFMPEG_PATH", "ffmpeg"),
   FFPROBE_PATH: read("FFPROBE_PATH", "ffprobe"),
   WORKER_CONCURRENCY: Number(read("WORKER_CONCURRENCY", "1")),

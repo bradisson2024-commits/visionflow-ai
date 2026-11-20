@@ -2,3 +2,4 @@
 numpy>=2
 sherpa-onnx>=1.12
 opencv-python-headless>=4.10
+yt-dlp>=2025.1

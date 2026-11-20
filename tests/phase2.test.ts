@@ -224,12 +224,26 @@ describe("Fase 2 — importación por enlace (worker en segundo plano)", () => {
   const newProject = async (name: string) => (await c.req("/api/projects", { method: "POST", json: { name } })).body.project.id as string;
   const detail = (p: string) => c.req(`/api/projects/${p}`).then((r) => r.body);
 
-  it("rechaza enlaces de YouTube/TikTok/Instagram explicando la alternativa", async () => {
+  it("enlaces de YouTube/TikTok/Instagram exigen confirmar los derechos sobre el video", async () => {
     const p = await newProject("Plataformas");
     for (const url of ["https://www.youtube.com/watch?v=abc", "https://youtu.be/abc", "https://www.tiktok.com/@a/video/1", "https://www.instagram.com/reel/x/"]) {
       const r = await c.req(`/api/projects/${p}/imports`, { method: "POST", json: { url } });
-      expect(r.status).toBe(422);
-      expect(r.body.error).toMatch(/términos de uso/);
+      expect(r.status).toBe(400);
+      expect(r.body.error).toMatch(/derecho a usar este video/);
+    }
+  });
+
+  it("con la confirmación, un enlace de YouTube se encola y cualquier fallo se informa con un mensaje claro", async () => {
+    const p = await newProject("YouTube");
+    const r = await c.req(`/api/projects/${p}/imports`, { method: "POST", json: { url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", confirmRights: true } });
+    expect(r.status).toBe(202);
+    const d = await waitFor(() => detail(p), (b) => b.jobs[0]?.status === "failed" || b.jobs[0]?.status === "completed", 60_000);
+    // En este entorno de pruebas YouTube no es accesible: debe fallar con un motivo legible, no en silencio.
+    if (d.jobs[0].status === "failed") {
+      expect(d.jobs[0].error.length).toBeGreaterThan(10);
+      expect(d.videos[0].uploadStatus).toBe("failed");
+    } else {
+      expect(d.videos[0].uploadStatus).toBe("uploaded");
     }
   });
 

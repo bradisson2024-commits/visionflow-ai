@@ -18,6 +18,12 @@ puntuación, reencuadre vertical, subtítulos y exportación real con FFmpeg.
 | 6 | Render con opciones (resolución, calidad, FPS, SRT), descarga individual y ZIP | ✅ Probada |
 | 7 | Pruebas de extremo a extremo | ✅ 59 pruebas automáticas + flujo en navegador móvil |
 
+## Pegar un enlace de YouTube → clips virales
+
+En el inicio pega el enlace (YouTube, TikTok, Instagram, Drive, Dropbox…), confirma que tienes derecho a usar
+el video y pulsa **Obtener clips virales**: se descarga (yt-dlp), se transcribe, la IA detecta los momentos y
+los clips aparecen ordenados de mayor a menor potencial. Ver `docs/CONFIGURACION.md` § 5.
+
 ## Modo 100 % gratis
 
 - Transcripción: Whisper local (`TRANSCRIPTION_PROVIDER=local`).

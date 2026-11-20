@@ -14,6 +14,8 @@ import { rm } from "node:fs/promises";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../db";
 import { HttpError } from "../http";
+import { env } from "../env";
+import { checkAnalysisServices, checkClipLength, type AnalyzeInput } from "./analysis";
 import { enqueueJob } from "../queue";
 import { getOwnedProject } from "./projects";
 import { partPath, removeExistingVideos } from "./videos";
@@ -73,12 +75,14 @@ export async function assertPublicUrl(raw: string): Promise<URL> {
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new HttpError(400, "Sólo se admiten enlaces http(s).");
   if (url.username || url.password) throw new HttpError(400, "El enlace no puede incluir credenciales.");
   const platform = detectPlatform(url.hostname);
-  if (platform)
+  if (platform) {
+    if (env.PLATFORM_IMPORT_ENABLED) return url; // la descarga la hace yt-dlp
     throw new HttpError(
       422,
-      `${platform.name} no permite descargar sus videos con herramientas externas según sus términos de uso, así que ClipForge no los descarga. ${platform.help}`,
+      `La importación desde ${platform.name} está desactivada en este servidor (PLATFORM_IMPORT_ENABLED=false). ${platform.help}`,
       { platform: platform.name },
     );
+  }
   if (!allowPrivate()) {
     const host = url.hostname.replace(/^\[|\]$/g, "");
     let addrs: { address: string }[];
@@ -98,18 +102,42 @@ function filenameFromUrl(url: URL, disposition?: string | null): string {
   return name.slice(0, 200) || "video";
 }
 
+export type ImportOptions = {
+  /** Obligatorio para plataformas: el usuario declara tener derecho a usar el video. */
+  confirmRights?: boolean;
+  /** Si se indica, al terminar la importación se analiza automáticamente. */
+  autoAnalyze?: AnalyzeInput;
+  /** Renombra el proyecto con el título del video al descargarlo. */
+  renameFromTitle?: boolean;
+};
+
 /** Crea el video en estado “subiendo” y encola la descarga en segundo plano. */
-export async function startUrlImport(userId: string, projectId: string, rawUrl: string) {
+export async function startUrlImport(userId: string, projectId: string, rawUrl: string, opts: ImportOptions = {}) {
   const project = await getOwnedProject(userId, projectId);
-  const url = normalizeShareUrl(await assertPublicUrl(rawUrl));
+  const checked = await assertPublicUrl(rawUrl);
+  const platform = detectPlatform(checked.hostname);
+  if (platform && !opts.confirmRights)
+    throw new HttpError(400, `Para importar desde ${platform.name} confirma que tienes derecho a usar este video (es tuyo o tienes permiso).`, { needsRights: true });
+  // Si se pide análisis automático, se comprueba antes de descargar nada.
+  if (opts.autoAnalyze) {
+    checkClipLength(opts.autoAnalyze);
+    await checkAnalysisServices(opts.autoAnalyze, true);
+  }
+  const url = platform ? checked : normalizeShareUrl(checked);
   // Sustituye un video previo del proyecto.
   await removeExistingVideos(project.id);
   const [video] = await db
     .insert(schema.videos)
-    .values({ projectId: project.id, originalFilename: filenameFromUrl(url), storageKey: "", source: "url", sourceUrl: rawUrl.trim() })
+    .values({ projectId: project.id, originalFilename: platform ? `${platform.name}.mp4` : filenameFromUrl(url), storageKey: "", source: "url", sourceUrl: rawUrl.trim() })
     .returning();
   await db.update(schema.projects).set({ status: "uploading" }).where(eq(schema.projects.id, project.id));
-  const job = await enqueueJob({ type: "import_url", projectId: project.id, videoId: video.id, stage: "queued", params: { url: url.toString() } });
+  const job = await enqueueJob({
+    type: "import_url",
+    projectId: project.id,
+    videoId: video.id,
+    stage: "queued",
+    params: { url: url.toString(), platform: platform?.name ?? null, autoAnalyze: opts.autoAnalyze ?? null, renameFromTitle: !!opts.renameFromTitle, rightsConfirmed: !!opts.confirmRights },
+  });
   return { video, job };
 }
 

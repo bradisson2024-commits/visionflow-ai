@@ -38,7 +38,7 @@ export function VideoSection({ projectId, video, importJob }: { projectId: strin
     return (
       <div className="mt-4 rounded-2xl border border-line bg-surface-2 p-4">
         <p className="flex items-center gap-2 text-sm font-medium">
-          <Link2 className="size-4 text-ai" /> Importando desde enlace
+          <Link2 className="size-4 text-ai" /> Importando{importJob?.params.platform ? ` desde ${String(importJob.params.platform)}` : " desde enlace"}
         </p>
         <p className="mt-1 truncate text-xs text-faint" title={video.sourceUrl ?? ""}>{video.sourceUrl}</p>
         <div className="mb-1.5 mt-4 flex justify-between text-xs">
@@ -51,6 +51,9 @@ export function VideoSection({ projectId, video, importJob }: { projectId: strin
           {video.sizeBytes > video.receivedBytes && ` de ${formatBytes(video.sizeBytes)}`}
           {importJob?.stage === "queued" && " · esperando al procesador (worker)"}
         </p>
+        {importJob?.params.autoAnalyze ? (
+          <p className="mt-2 text-xs text-ai">Al terminar la descarga se buscarán automáticamente los clips con más potencial.</p>
+        ) : null}
         <div className="mt-4">
           <CancelImportButton videoId={video.id} />
         </div>
