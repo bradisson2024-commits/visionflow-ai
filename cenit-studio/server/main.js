@@ -8,6 +8,7 @@ import './modules/visuals.js';
 import './modules/voices.js';
 import './modules/render.js';
 import './modules/inspired.js';
+import './modules/produce.js';
 
 await migrate();
 const app = await buildApp();

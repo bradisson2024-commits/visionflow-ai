@@ -24,6 +24,7 @@ import * as VO from './modules/voices.js';
 import * as M from './modules/music.js';
 import * as S from './modules/subtitles.js';
 import * as R from './modules/render.js';
+import * as PR from './modules/produce.js';
 import * as RD from './modules/radar.js';
 import * as WK from './modules/weekly.js';
 import { createInspired } from './modules/inspired.js';
@@ -166,6 +167,7 @@ export async function buildApp() {
   app.post('/api/proyectos/:id/imagenes', async (req) => ({ queued: await V.requestImages(req.user, req.params.id, req.body?.sceneIds || null) }));
   app.post('/api/proyectos/:id/animar', async (req) => ({ queued: await V.requestAnimation(req.user, req.params.id, req.body?.sceneIds || [], req.body?.mode) }));
   app.post('/api/proyectos/:id/voz', async (req) => VO.requestVoice(req.user, req.params.id, req.body?.sceneIds || null));
+  app.post('/api/proyectos/:id/producir', async (req) => PR.requestProduce(req.user, req.params.id, req.body || {}));
   app.post('/api/proyectos/:id/render', async (req) => R.requestRender(req.user, req.params.id, req.body || {}));
   app.get('/api/proyectos/:id/subtitulos/auto', async (req) => {
     const p = await P.own(req.user, req.params.id);
