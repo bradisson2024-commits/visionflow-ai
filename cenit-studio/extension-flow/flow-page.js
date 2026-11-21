@@ -28,6 +28,9 @@
     return out;
   }
   const shown = (el) => { if (!el?.isConnected) return false; const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width > 4 && r.height > 4 && s.visibility !== 'hidden' && s.display !== 'none' && Number(s.opacity) > 0.05; };
+  const onScreen = (el) => { const r = el.getBoundingClientRect(); return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth; };
+  const isEditable = (e) => !!e && (e.tagName === 'TEXTAREA' || (e.tagName === 'INPUT' && /^(text|search|)$/i.test(e.type || '')) || e.isContentEditable);
+  const deepActive = () => { let a = document.activeElement; while (a?.shadowRoot?.activeElement) a = a.shadowRoot.activeElement; return a; };
   const rectOf = (el) => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; };
   const label = (el) => `${el.getAttribute?.('aria-label') || ''} ${el.getAttribute?.('title') || ''} ${el.textContent || ''}`.toLowerCase().replace(/\s+/g, ' ').trim();
   const isSearch = (e) => /search|buscar/i.test(`${e.getAttribute('aria-label') || ''} ${e.getAttribute('placeholder') || ''} ${e.type || ''}`);
@@ -72,7 +75,7 @@
   // Cuadro de prompt automático: editable visible (no la búsqueda) cuyo entorno habla de crear; si no, el más bajo.
   const HELP = /(qué quieres crear|what do you want|create|crear|describe|imagina|imagine|prompt)/i;
   function autoPrompt() {
-    const c = deepAll('textarea, [contenteditable], [role="textbox"], input[type="text"]').filter((e) => (e.tagName === 'TEXTAREA' || e.tagName === 'INPUT' || e.isContentEditable || e.getAttribute('role') === 'textbox') && shown(e) && !isSearch(e) && !e.closest('#cenit-flow-status'));
+    const c = deepAll('textarea, [contenteditable], [role="textbox"], input[type="text"]').filter((e) => (e.tagName === 'TEXTAREA' || e.tagName === 'INPUT' || e.isContentEditable || e.getAttribute('role') === 'textbox') && shown(e) && onScreen(e) && !isSearch(e) && !e.closest('#cenit-flow-status'));
     if (!c.length) return null;
     const near = (e) => `${e.getAttribute('placeholder') || ''} ${e.getAttribute('aria-label') || ''} ${e.getAttribute('aria-placeholder') || ''} ${(e.parentElement?.parentElement?.parentElement?.textContent || '').slice(0, 300)}`;
     const helped = c.filter((e) => HELP.test(near(e)));
@@ -80,7 +83,9 @@
   }
   // Si el editor sólo aparece al pulsar el texto de ayuda, devuelve ese texto para que la extensión haga clic en él.
   function helpHint() {
-    return deepAll('div, span, p, label').find((e) => shown(e) && e.children.length === 0 && /(qué quieres crear|what do you want to create)/i.test(e.textContent || '')) || null;
+    const byText = deepAll('div, span, p, label').find((e) => shown(e) && onScreen(e) && e.children.length === 0 && /(qué quieres crear|what do you want to create)/i.test(e.textContent || ''));
+    if (byText) return byText;
+    return deepAll('[placeholder], [aria-placeholder], [data-placeholder]').find((e) => shown(e) && onScreen(e) && /(qué quieres crear|what do you want to create)/i.test(`${e.getAttribute('placeholder') || ''} ${e.getAttribute('aria-placeholder') || ''} ${e.dataset?.placeholder || ''}`)) || null;
   }
   function autoButton(box) {
     if (!box) return null;
@@ -165,11 +170,19 @@
       switch (msg?.cmd) {
         case 'ping': { const box = promptEl(); return { ok: true, prompt: !!box, blocker: blocker() }; }
         case 'status': status(msg.text, msg.kind); return { ok: true };
+        case 'focus': {
+          const a = deepActive();
+          return { ok: true, editable: isEditable(a) && !isSearch(a), text: isEditable(a) ? textOf(a) : '', rect: a && a !== document.body ? rectOf(a) : null };
+        }
         case 'locate': {
-          const box = promptEl();
-          const hint = box ? null : helpHint();
+          const act = deepActive();
+          const box = msg.useActive && isEditable(act) && !isSearch(act) ? act : promptEl();
+          const hint = helpHint();
           const btn = box ? buttonEl(box) : null;
           return { ok: true, prompt: box ? rectOf(box) : null, hint: hint ? rectOf(hint) : null, button: btn ? rectOf(btn) : null, text: textOf(box), blocker: blocker(), calibrated: { prompt: !!calib.prompt, button: !!calib.button } };
+        }
+        case 'forgetPrompt': {
+          delete calib.prompt; await chrome.storage.local.set({ calib }); return { ok: true };
         }
         case 'snapshot': return { ok: true, keys: bigImages().map(key), busy: deepAll('[role="progressbar"], progress').filter(shown).length + deepAll('div, span').filter((e) => e.children.length === 0 && /^\s*\d{1,3}\s?%\s*$/.test(e.textContent || '') && shown(e)).length };
         case 'calibrate': return { ok: await calibrate(msg.what) };

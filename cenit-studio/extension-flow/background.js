@@ -109,29 +109,46 @@ async function generateOne(tab, it) {
   if (!(await waitReady(id))) return { ok: false, error: 'La pestaña de Google Flow no responde: recárgala (F5) y vuelve a pulsar el botón en Cenit.', stop: true };
   let loc = await send(id, { cmd: 'locate' });
   if (loc?.blocker) return { ok: false, error: loc.blocker, stop: true };
-  if (!loc?.prompt && loc?.hint) { await click(loc.hint); await sleep(600); loc = await send(id, { cmd: 'locate' }); }
-  if (!loc?.prompt) {
-    notify({ status: 'aviso', message: 'Ve a la pestaña de Google Flow: si no hay un proyecto abierto, ábrelo; después haz clic UNA vez en el cuadro «¿Qué quieres crear?» (sólo la primera vez).' });
-    await detach(); // el usuario hace el clic con el ratón de verdad
-    if (!(await send(id, { cmd: 'calibrate', what: 'prompt' }))?.ok) return { ok: false, error: 'No se pudo localizar el cuadro de texto de Google Flow.', stop: true };
+  const min = Math.min(20, it.prompt.length);
+  // 1) Poner el cursor en el cuadro: clic donde lo haría una persona (texto «¿Qué quieres crear?», luego el editor)
+  //    y comprobar que el foco quedó en un editor de texto.
+  const focusBox = async () => {
+    for (const r of [loc?.hint, loc?.prompt].filter(Boolean)) {
+      await click(r); await sleep(500);
+      if ((await send(id, { cmd: 'focus' }))?.editable) return true;
+    }
+    return false;
+  };
+  const askBox = async () => {
+    notify({ status: 'aviso', message: 'Ve a la pestaña de Google Flow y haz clic UNA vez dentro del cuadro «¿Qué quieres crear?» (sólo la primera vez).' });
+    await send(id, { cmd: 'forgetPrompt' });
+    await detach(); // el usuario hace el clic con el ratón de verdad; ese clic deja el cursor en el cuadro
+    const ok = (await send(id, { cmd: 'calibrate', what: 'prompt' }))?.ok;
     await attach(id);
-    loc = await send(id, { cmd: 'locate' });
-    if (!loc?.prompt) return { ok: false, error: 'No se pudo localizar el cuadro de texto de Google Flow.', stop: true };
-  }
+    await sleep(300);
+    return ok && (await send(id, { cmd: 'focus' }))?.editable;
+  };
+  // 2) Escribir y comprobar que el texto está dentro; si no, letra a letra.
+  const typeIn = async () => {
+    await clearAndType(it.prompt); await sleep(500);
+    if (((await send(id, { cmd: 'focus' }))?.text || '').length >= min) return true;
+    await key('a', 'KeyA', 65, 2, { commands: ['selectAll'] }); await key('Backspace', 'Backspace', 8);
+    for (const ch of it.prompt) await cdp('Input.dispatchKeyEvent', { type: 'keyDown', text: ch, unmodifiedText: ch, key: ch });
+    await sleep(500);
+    return ((await send(id, { cmd: 'focus' }))?.text || '').length >= min;
+  };
   await say(id, `escribiendo el prompt de ${it.label}…`);
-  await click(loc.prompt);
-  await sleep(300);
-  await clearAndType(it.prompt);
-  await sleep(500);
-  loc = await send(id, { cmd: 'locate' });
-  if (!loc?.text || loc.text.length < Math.min(20, it.prompt.length)) return { ok: false, error: 'Google Flow no aceptó el texto en el cuadro. Pulsa el icono de la extensión en Flow y vuelve a enseñarle el cuadro.', stop: true };
+  let typed = (await focusBox()) && (await typeIn());
+  if (!typed) typed = (await askBox()) && (await typeIn());
+  if (!typed) return { ok: false, error: 'Google Flow no aceptó el texto en el cuadro. Mándale una foto de esto al soporte.', stop: true };
+  loc = await send(id, { cmd: 'locate', useActive: true });
 
   const snap0 = await send(id, { cmd: 'snapshot' }) || {};
   const before = snap0.keys || [];
   const started = async () => {
     for (let k = 0; k < 8; k++) {
       await sleep(1000);
-      const [l, sn] = [await send(id, { cmd: 'locate' }), await send(id, { cmd: 'snapshot' })];
+      const [l, sn] = [await send(id, { cmd: 'locate', useActive: true }), await send(id, { cmd: 'snapshot' })];
       if (!l?.text || l.text.length < Math.min(20, it.prompt.length)) return true; // Flow vació el cuadro
       if ((sn?.busy || 0) > (snap0.busy || 0) || sn?.keys?.some((k2) => !before.includes(k2))) return true; // progreso o imagen nueva
     }
