@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, fileUrl, useData } from '../../lib/api.js';
 import { Action, Modal, Status, useToast } from '../../components/ui.jsx';
+import { Finish } from './Finish.jsx';
 import { FlowButton, PromptButton, AutoFlowButton, useFlowProgress } from '../../lib/flow.jsx';
 
 const RHYTHM = [['rapido', 'Rápido', '≈ 4 s por imagen'], ['normal', 'Normal', '≈ 5 s por imagen'], ['lento', 'Lento', 'configurable']];
@@ -161,7 +162,7 @@ function SceneCard({ p, s, reload, cast }) {
   );
 }
 
-export default function Contenido({ p, reload, patch }) {
+export default function Contenido({ p, reload, patch, setTab }) {
   const { data: templates } = useData('/api/plantillas');
   const [idea, setIdea] = useState(p.idea || '');
   const [script, setScript] = useState(p.script || '');
@@ -242,6 +243,7 @@ export default function Contenido({ p, reload, patch }) {
         {!p.scenes.length && <p className="muted">Divide el guion para crear las escenas. Cada escena tendrá su fragmento de narración y una imagen que lo representa.</p>}
         {p.scenes.map((s) => <SceneCard key={s.id} p={p} s={s} reload={reload} cast={p.cast} />)}
       </div>
+      <Finish p={p} reload={reload} setTab={setTab} />
     </>
   );
 }

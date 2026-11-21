@@ -26,6 +26,8 @@ const browser = await chromium.launch(); const page = await browser.newPage({ vi
 const errs = []; page.on('pageerror', (e) => errs.push(e.message));
 await page.goto(B); await page.evaluate((t) => localStorage.setItem('cenit.token', t), token);
 await page.goto(`${B}/proyectos/${p.id}`);
+await page.getByRole('button', { name: '▶ Terminar vídeo' }).scrollIntoViewIfNeeded();
+await page.screenshot({ path: (process.env.SHOT || '/tmp/prod.png').replace('.png', '-boton.png') });
 await page.getByRole('button', { name: '▶ Terminar vídeo' }).click();
 const tabs = new Set();
 const t0 = Date.now();
