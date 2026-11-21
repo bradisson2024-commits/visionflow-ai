@@ -37,7 +37,7 @@ function generate(t) { if (!t.trim()) return; window.prompts.push(t.trim()); ed(
   const bar = document.createElement('div'); bar.setAttribute('role', 'progressbar'); bar.style.cssText = 'width:200px;height:6px;background:#4af'; document.getElementById('out').prepend(bar);
   setTimeout(() => { bar.remove(); const i = document.createElement('img'); i.src = '/fx/media/' + (++k) + '.png'; i.style.width = '240px'; document.getElementById('out').prepend(i); }, 1500); }`;
 const flowA = `<!doctype html><html><body style="background:#111;color:#eee;margin:0"><input placeholder="Search" style="width:700px;height:40px"><div id="out"></div>
-<prompt-bar style="position:fixed;bottom:20px;left:40px;width:800px;display:block"></prompt-bar><script>
+<iframe src="https://www.google.com/recaptcha/enterprise/anchor?k=x" title="reCAPTCHA" style="width:256px;height:60px;position:fixed;bottom:-200px;right:0"></iframe><prompt-bar style="position:fixed;bottom:20px;left:40px;width:800px;display:block"></prompt-bar><script>
 customElements.define('prompt-bar', class extends HTMLElement { connectedCallback() { const r = this.attachShadow({ mode: 'open' });
   r.innerHTML = '<div><div class="ph" style="position:absolute;opacity:.5;pointer-events:none">¿Qué quieres crear?</div><div contenteditable style="min-height:24px;padding:4px"></div></div><button aria-label="Crear"><i>arrow_forward</i></button>'; } });
 const ed = () => document.querySelector('prompt-bar').shadowRoot.querySelector('[contenteditable]');

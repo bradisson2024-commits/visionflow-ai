@@ -95,7 +95,9 @@
 
   function blocker() {
     if (/accounts\.google\.com|signin/.test(location.href)) return 'Google Flow pide iniciar sesión. Inicia sesión y vuelve a pulsar el botón en Cenit.';
-    if (deepAll('iframe[src*="recaptcha"], iframe[title*="captcha" i]').length) return 'Google Flow muestra una verificación. Resuélvela y vuelve a pulsar el botón en Cenit.';
+    // Google carga un reCAPTCHA invisible en sus páginas: sólo cuenta si el desafío se ve de verdad en pantalla.
+    const challenge = deepAll('iframe').find((f) => /recaptcha\/.*bframe|hcaptcha|challenge/i.test(`${f.src} ${f.title}`) && !/anchor/.test(f.src) && shown(f) && f.getBoundingClientRect().width > 250 && f.getBoundingClientRect().height > 250);
+    if (challenge) return 'Google Flow muestra una verificación. Resuélvela y vuelve a pulsar el botón en Cenit.';
     const txt = document.body.innerText.slice(-8000).toLowerCase();
     if (/(daily limit|usage limit|out of credits|not enough credits|límite diario|límite de uso|sin créditos|créditos insuficientes|no tienes suficientes créditos|quota exceeded)/.test(txt)) return 'Google Flow indica que se acabaron tus créditos o tu límite de uso.';
     return null;
