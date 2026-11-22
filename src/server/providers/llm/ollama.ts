@@ -17,14 +17,19 @@ export async function checkOllama(): Promise<string | null> {
   try {
     res = await fetch(`${ollamaBase()}/api/tags`, { signal: AbortSignal.timeout(3000) });
   } catch {
-    return `Ollama no responde en ${ollamaBase()}. Instálalo desde ollama.com y ábrelo (o ejecuta \`ollama serve\`).`;
+    return process.env.CLIPFORGE_DOCKER === "1"
+      ? "El servicio de IA (Ollama) no responde. Vuelve a abrir «iniciar» para reiniciarlo."
+      : `Ollama no responde en ${ollamaBase()}. Instálalo desde ollama.com y ábrelo (o ejecuta \`ollama serve\`).`;
   }
   if (!res.ok) return `Ollama respondió ${res.status} en ${ollamaBase()}.`;
   const data = (await res.json()) as { models?: { name: string; model?: string }[] };
   const want = ollamaModel();
   const names = (data.models ?? []).flatMap((m) => [m.name, m.model ?? ""]);
   const ok = names.some((n) => n === want || n === `${want}:latest` || n.replace(/:latest$/, "") === want);
-  return ok ? null : `El modelo «${want}» no está instalado en Ollama. Ejecuta: ollama pull ${want}`;
+  if (ok) return null;
+  return process.env.CLIPFORGE_DOCKER === "1"
+    ? `El modelo de IA «${want}» todavía se está descargando (la primera vez tarda varios minutos, ≈ 5 GB). Si no termina, vuelve a abrir «iniciar».`
+    : `El modelo «${want}» no está instalado en Ollama. Ejecuta: ollama pull ${want}`;
 }
 
 export function ollamaProvider(): LlmProvider {

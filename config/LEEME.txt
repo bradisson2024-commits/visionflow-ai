@@ -1,0 +1,6 @@
+Carpeta de configuración para la instalación con Docker.
+
+Si YouTube muestra «confirma que no eres un bot», guarda aquí las cookies de tu
+navegador con el nombre cookies.txt (formato Netscape; puedes exportarlas con una
+extensión como «Get cookies.txt LOCALLY» estando con tu sesión de YouTube abierta).
+No compartas ese archivo: da acceso a tu cuenta.

@@ -1,16 +1,90 @@
-# Servicios de infraestructura para desarrollo local.
-#   docker compose up -d db redis
+# ClipForge AI — instalación completa con un comando:
+#   docker compose up -d --build
+# Luego abre http://localhost:3000
+#
+# Ajustes opcionales: copia clipforge.env.example a clipforge.env y edítalo.
+# Los scripts iniciar.bat / iniciar.command lo cargan automáticamente.
+name: clipforge
+
+x-app-env: &app-env
+  # Fijos para la instalación con Docker (no se toman del archivo .env de desarrollo)
+  DATABASE_URL: postgres://clipforge:clipforge@db:5432/clipforge
+  REDIS_URL: redis://redis:6379
+  APP_URL: http://localhost:3000
+  STORAGE_DRIVER: local
+  STORAGE_LOCAL_DIR: /data/storage
+  LOCAL_WHISPER_MODEL_DIR: /app/models/sherpa-onnx-whisper-base
+  LOCAL_VAD_MODEL: /app/models/silero_vad.onnx
+  OLLAMA_URL: http://ollama:11434
+  YTDLP_COOKIES_FILE: /config/cookies.txt
+  CLIPFORGE_DOCKER: "1"
+  # Ajustables en clipforge.env (ver clipforge.env.example)
+  TRANSCRIPTION_PROVIDER: ${CF_TRANSCRIPTION_PROVIDER:-local}
+  LLM_PROVIDER: ${CF_LLM_PROVIDER:-ollama}
+  LLM_MODEL: ${CF_LLM_MODEL:-qwen2.5:7b}
+  ANTHROPIC_API_KEY: ${CF_ANTHROPIC_API_KEY:-}
+  OPENAI_API_KEY: ${CF_OPENAI_API_KEY:-}
+  GROQ_API_KEY: ${CF_GROQ_API_KEY:-}
+  DEEPGRAM_API_KEY: ${CF_DEEPGRAM_API_KEY:-}
+  PLATFORM_IMPORT_ENABLED: ${CF_PLATFORM_IMPORT_ENABLED:-true}
+
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: clipforge
       POSTGRES_PASSWORD: clipforge
       POSTGRES_DB: clipforge
-    ports: ["5432:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clipforge"]
+      interval: 3s
+      retries: 30
+
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
+    restart: unless-stopped
+    volumes: [redisdata:/data]
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes: [ollama:/root/.ollama]
+
+  # Descarga el modelo de IA la primera vez (≈ 4,7 GB para qwen2.5:7b)
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on: [ollama]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["sh", "-c", "until ollama list >/dev/null 2>&1; do sleep 2; done; ollama pull ${CF_LLM_MODEL:-qwen2.5:7b}"]
+    restart: "no"
+
+  app:
+    build: .
+    image: clipforge-app
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+    environment: *app-env
+    command: ["sh", "-c", "npx drizzle-kit migrate && npm start"]
+    ports: ["3000:3000"]
+    volumes: [storage:/data/storage, ./config:/config:ro]
+
+  worker:
+    build: .
+    image: clipforge-app
+    restart: unless-stopped
+    depends_on:
+      app: { condition: service_started }
+    environment: *app-env
+    command: ["npm", "run", "worker"]
+    volumes: [storage:/data/storage, ./config:/config:ro]
+
 volumes:
   pgdata:
+  redisdata:
+  ollama:
+  storage:

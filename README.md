@@ -6,6 +6,15 @@ puntuación, reencuadre vertical, subtítulos y exportación real con FFmpeg.
 
 > Inspirada en el flujo de trabajo de herramientas como Opus Clip, con marca, diseño y código propios.
 
+## 🚀 Instalar en tu computador (Windows o Mac)
+
+1. Instala **Docker Desktop** (gratis) y ábrelo.
+2. Descarga este repositorio (Code → Download ZIP) y descomprímelo.
+3. Doble clic en **`iniciar.bat`** (Windows) o **`iniciar.command`** (Mac).
+4. Se abre **http://localhost:3000**. Pega un enlace de YouTube y pulsa *Obtener clips virales*.
+
+Guía paso a paso: **[docs/INSTALAR.md](docs/INSTALAR.md)**.
+
 ## Estado
 
 | Fase | Contenido | Estado |

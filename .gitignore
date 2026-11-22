@@ -14,3 +14,4 @@ storage/
 npm-debug.log*
 tests/fixtures/
 models/
+clipforge.env
