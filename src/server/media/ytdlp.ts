@@ -8,9 +8,10 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readdir } from "node:fs/promises";
+import { readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { env } from "../env";
+import { run } from "./ffmpeg";
 
 export type PlatformInfo = { id: string; title: string; durationSec: number | null; uploader: string | null; isLive: boolean };
 
@@ -76,7 +77,8 @@ export async function platformDownload(
     ...baseArgs(),
     "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080][ext=mp4]/bv*[height<=1080]+ba/b[height<=1080]/b",
     "--merge-output-format", "mp4",
-    "--ffmpeg-location", env.FFMPEG_PATH === "ffmpeg" ? "ffmpeg" : env.FFMPEG_PATH,
+    // Sólo se indica la ubicación si es una ruta real; si no, yt-dlp busca FFmpeg en el PATH.
+    ...(path.isAbsolute(env.FFMPEG_PATH) && existsSync(env.FFMPEG_PATH) ? ["--ffmpeg-location", env.FFMPEG_PATH] : []),
     "--max-filesize", String(opts.maxBytes),
     "--newline",
     "--progress-template", "download:CFPROG %(progress.downloaded_bytes)s %(progress.total_bytes)s %(progress.total_bytes_estimate)s",
@@ -90,7 +92,21 @@ export async function platformDownload(
     const total = Number(m[2]) || Number(m[3]) || null;
     if (Number.isFinite(done)) opts.onProgress?.(done, total);
   });
-  const files = (await readdir(outDir)).filter((f) => f.startsWith("source.") && !f.endsWith(".part") && !f.includes(".f"));
-  if (!files.length) throw new Error("yt-dlp terminó pero no se encontró el archivo descargado (¿supera el tamaño máximo permitido?).");
-  return path.join(outDir, files.sort((a, b) => (a.endsWith(".mp4") ? -1 : b.endsWith(".mp4") ? 1 : 0))[0]);
+  const all = (await readdir(outDir)).filter((f) => f.startsWith("source.") && !f.endsWith(".part") && !f.endsWith(".ytdl"));
+  const merged = all.filter((f) => !/\.f[\w-]+\./.test(f));
+  if (merged.length) return path.join(outDir, merged.sort((a, b) => (a.endsWith(".mp4") ? -1 : b.endsWith(".mp4") ? 1 : 0))[0]);
+
+  // Video y audio llegaron por separado (p. ej. sin FFmpeg disponible para yt-dlp): se unen aquí.
+  const parts = all.filter((f) => /\.f[\w-]+\./.test(f));
+  const audio = parts.find((f) => /\.(m4a|webm|opus|mp3|aac)$/.test(f) && !/\.mp4$/.test(f)) ?? null;
+  const video = parts.find((f) => f !== audio) ?? null;
+  if (video && audio) {
+    const out = path.join(outDir, "source.mp4");
+    await run(env.FFMPEG_PATH, ["-y", "-v", "error", "-i", path.join(outDir, video), "-i", path.join(outDir, audio), "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", out], { signal: opts.signal });
+    await rm(path.join(outDir, video), { force: true });
+    await rm(path.join(outDir, audio), { force: true });
+    return out;
+  }
+  if (video) return path.join(outDir, video);
+  throw new Error(`yt-dlp terminó pero no se encontró el video descargado${all.length ? ` (archivos: ${all.join(", ")})` : ""}. Puede que supere el tamaño máximo permitido.`);
 }

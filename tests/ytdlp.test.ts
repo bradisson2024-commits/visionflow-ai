@@ -47,3 +47,41 @@ describe("yt-dlp", () => {
     expect(explainYtdlpError("ERROR: Unable to download API page: ('Unable to connect to proxy', OSError('Tunnel connection failed: 403'))")).toMatch(/no pudo conectarse/);
   });
 });
+
+describe("yt-dlp: video y audio separados (como en YouTube)", () => {
+  it("une el video y el audio con FFmpeg y no pasa una ruta de FFmpeg inválida", async () => {
+    const { writeFileSync, chmodSync, readFileSync, existsSync } = await import("node:fs");
+    const { execFileSync } = await import("node:child_process");
+    const dir = mkdtempSync(path.join(os.tmpdir(), "cf-fake-ytdlp-"));
+    const src = path.join(__dirname, "fixtures", "clip.mov");
+    // Prepara una pista de sólo video y otra de sólo audio
+    execFileSync("ffmpeg", ["-v", "error", "-y", "-i", src, "-an", "-c:v", "copy", path.join(dir, "v.mp4")]);
+    execFileSync("ffmpeg", ["-v", "error", "-y", "-i", src, "-vn", "-c:a", "copy", path.join(dir, "a.m4a")]);
+    const fake = path.join(dir, "fake-yt-dlp.sh");
+    writeFileSync(
+      fake,
+      `#!/usr/bin/env bash
+echo "$@" > "${dir}/args.txt"
+out=""; prev=""
+for a in "$@"; do [ "$prev" = "-o" ] && out="$a"; prev="$a"; done
+d=$(dirname "$out")
+cp "${dir}/v.mp4" "$d/source.f137.mp4"
+cp "${dir}/a.m4a" "$d/source.f140.m4a"
+echo "CFPROG 100 100 NA"
+`,
+    );
+    chmodSync(fake, 0o755);
+    process.env.YTDLP_PATH = fake;
+    const { vi } = await import("vitest");
+    vi.resetModules();
+    const mod = await import("@/server/media/ytdlp");
+    const outDir = mkdtempSync(path.join(os.tmpdir(), "cf-ytdlp-out-"));
+    const file = await mod.platformDownload("https://www.youtube.com/watch?v=x", outDir, { maxBytes: 1e9 });
+    expect(path.basename(file)).toBe("source.mp4");
+    const probe = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-print_format", "json", "-show_streams", file]).toString());
+    expect(probe.streams.map((s: { codec_type: string }) => s.codec_type).sort()).toEqual(["audio", "video"]);
+    expect(existsSync(path.join(outDir, "source.f137.mp4"))).toBe(false);
+    expect(readFileSync(path.join(dir, "args.txt"), "utf8")).not.toContain("--ffmpeg-location");
+    delete process.env.YTDLP_PATH;
+  });
+});
