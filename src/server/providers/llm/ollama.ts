@@ -28,7 +28,7 @@ export async function checkOllama(): Promise<string | null> {
   const ok = names.some((n) => n === want || n === `${want}:latest` || n.replace(/:latest$/, "") === want);
   if (ok) return null;
   return process.env.CLIPFORGE_DOCKER === "1"
-    ? `El modelo de IA «${want}» todavía se está descargando (la primera vez tarda varios minutos, ≈ 5 GB). Si no termina, vuelve a abrir «iniciar».`
+    ? `El modelo de IA «${want}» todavía se está descargando (la primera vez tarda unos minutos). Si no termina, vuelve a abrir «iniciar».`
     : `El modelo «${want}» no está instalado en Ollama. Ejecuta: ollama pull ${want}`;
 }
 
@@ -52,7 +52,7 @@ export function ollamaProvider(): LlmProvider {
             stream: false,
             format: schemaJson,
             options: { num_ctx: env.OLLAMA_NUM_CTX, temperature: 0.2 },
-            keep_alive: "10m",
+            keep_alive: "2m", // libera la memoria pronto (equipos con poca RAM)
             messages: [
               { role: "system", content: `${req.system}\n\nResponde sólo con JSON válido que cumpla el esquema indicado.` },
               { role: "user", content: req.user },

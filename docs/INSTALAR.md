@@ -63,6 +63,9 @@ Después vuelve a ejecutar `iniciar`.
 
 ## Equipos con 4 GB de RAM
 
+**Automático:** si no existe `clipforge.env`, `iniciar` detecta la RAM y con menos de 7 GB usa el modelo
+ligero `qwen2.5:1.5b` (≈ 1 GB). No hay que hacer nada.
+
 La IA local por defecto (qwen2.5:7b) necesita unos 8 GB de RAM. Con 4 GB todo lo demás funciona
 (importar, transcribir, recortar, subtitular, descargar), pero para elegir los momentos virales hay dos
 opciones. Se configuran en `clipforge.env` (copia de `clipforge.env.example`) y luego se vuelve a abrir `iniciar`:

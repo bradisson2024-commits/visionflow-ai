@@ -17,6 +17,17 @@ if errorlevel 1 (
 )
 set ENVFILE=clipforge.env
 if not exist "%ENVFILE%" set ENVFILE=clipforge.env.example
+rem Sin clipforge.env propio: con menos de 7 GB de RAM se usa el modelo de IA ligero.
+if exist "clipforge.env" goto ram_done
+set RAMGB=
+for /f "usebackq tokens=*" %%m in (`powershell -NoProfile -Command "[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB)"`) do set RAMGB=%%m
+if not defined RAMGB goto ram_done
+if %RAMGB% GEQ 7 goto ram_done
+echo Equipo con %RAMGB% GB de RAM: se usara el modelo de IA ligero qwen2.5:1.5b
+set CF_LLM_MODEL=qwen2.5:1.5b
+set CF_OLLAMA_NUM_CTX=4096
+set CF_LLM_WINDOW_WORDS=1200
+:ram_done
 echo Preparando ClipForge (la primera vez tarda 10-20 minutos: descarga programas y el modelo de IA)...
 docker compose --env-file "%ENVFILE%" up -d --build
 if errorlevel 1 (

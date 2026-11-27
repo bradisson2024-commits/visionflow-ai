@@ -13,6 +13,16 @@ if ! docker info >/dev/null 2>&1; then
   read -r -p "Pulsa Enter para cerrar…" _; exit 1
 fi
 ENVFILE=clipforge.env; [ -f "$ENVFILE" ] || ENVFILE=clipforge.env.example
+# Sin clipforge.env propio: con menos de 7 GB de RAM se usa el modelo de IA ligero.
+if [ ! -f clipforge.env ]; then
+  if [ -n "${CF_TEST_RAM_GB:-}" ]; then RAMGB=$CF_TEST_RAM_GB
+  elif command -v sysctl >/dev/null 2>&1 && sysctl -n hw.memsize >/dev/null 2>&1; then RAMGB=$(( $(sysctl -n hw.memsize) / 1073741824 ))
+  else RAMGB=$(( $(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0) / 1048576 )); fi
+  if [ "${RAMGB:-0}" -gt 0 ] && [ "$RAMGB" -lt 7 ]; then
+    echo "Equipo con ${RAMGB} GB de RAM: se usará el modelo de IA ligero qwen2.5:1.5b"
+    export CF_LLM_MODEL=qwen2.5:1.5b CF_OLLAMA_NUM_CTX=4096 CF_LLM_WINDOW_WORDS=1200
+  fi
+fi
 echo "Preparando ClipForge (la primera vez tarda 10–20 minutos: descarga programas y el modelo de IA)…"
 if ! docker compose --env-file "$ENVFILE" up -d --build; then
   echo "No se pudo arrancar. Copia el mensaje de arriba para pedir ayuda."
