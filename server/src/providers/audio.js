@@ -5,6 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getSettings, requireKey, BASE_URLS } from '../settings.js';
 import { json, buffer } from './http.js';
+import { listPiperVoices, piperSynthesize } from './piper.js';
+import { composeLocal } from './composer.js';
 
 export const OPENAI_VOICES = [
   { id: 'alloy', name: 'Alloy', gender: 'neutral' }, { id: 'ash', name: 'Ash', gender: 'masculina' },
@@ -17,7 +19,26 @@ export const OPENAI_VOICES = [
 
 const GENDER_ES = { male: 'masculina', female: 'femenina', neutral: 'neutral' };
 
-export async function listVoices(provider) {
+const KOKORO_LANG = { a: 'Inglés (EE. UU.)', b: 'Inglés (Reino Unido)', e: 'Español', f: 'Francés', h: 'Hindi', i: 'Italiano', j: 'Japonés', p: 'Portugués (Brasil)', z: 'Chino' };
+const kokoroBase = () => getSettings().kokoro_url.replace(/\/$/, '');
+
+export async function listVoices(provider, language = 'es') {
+  if (provider === 'piper') return listPiperVoices(language);
+  if (provider === 'kokoro') {
+    let r;
+    try { r = await json('Kokoro', `${kokoroBase()}/v1/audio/voices`, {}, { retries: 0, timeoutMs: 10000 }); }
+    catch (e) { throw e.status === 0 ? new Error(`Kokoro no responde en ${kokoroBase()}. Inicia el servidor Kokoro-FastAPI (ver «Claves API → Servicios locales»).`) : e; }
+    const ids = (r.voices || []).map(v => (typeof v === 'string' ? v : v.id || v.name)).filter(Boolean);
+    const lang = String(language).slice(0, 1);
+    return ids.map(id => ({
+      id, provider: 'kokoro', installed: true,
+      name: id.split('_').slice(1).join(' ').replace(/^\w/, c => c.toUpperCase()) || id,
+      gender: id[1] === 'f' ? 'femenina' : id[1] === 'm' ? 'masculina' : '—',
+      language: KOKORO_LANG[id[0]] || id[0],
+      description: 'Voz local de Kokoro (gratis, sin límites)',
+      preview_url: null,
+    })).sort((a, b) => (b.id[0] === lang) - (a.id[0] === lang) || a.id.localeCompare(b.id));
+  }
   if (provider === 'openai') {
     return OPENAI_VOICES.map(v => ({ ...v, provider: 'openai', language: 'multilingüe', description: 'Voz de OpenAI TTS', preview_url: null }));
   }
@@ -42,7 +63,20 @@ export async function synthesize({ text, voice, outPath, context = {}, signal })
   const s = getSettings();
   const provider = voice.provider || s.tts_provider;
   let buf;
-  if (provider === 'openai') {
+  if (provider === 'piper') {
+    return piperSynthesize({ text, voiceId: voice.voice_id, speed: voice.speed, outPath, signal });
+  }
+  if (provider === 'kokoro') {
+    if (!voice.voice_id) throw new Error('Selecciona una voz de Kokoro en «Voces».');
+    try {
+      buf = await buffer('Kokoro', `${kokoroBase()}/v1/audio/speech`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'kokoro', input: text, voice: voice.voice_id, response_format: 'mp3', speed: clamp(Number(voice.speed) || 1, 0.5, 2) }),
+      }, { signal, timeoutMs: 15 * 60_000 });
+    } catch (e) {
+      throw e.status === 0 ? new Error(`Kokoro no responde en ${kokoroBase()}. Inicia el servidor Kokoro-FastAPI.`) : e;
+    }
+  } else if (provider === 'openai') {
     const body = { model: s.openai_tts_model, voice: voice.voice_id || 'alloy', input: text, response_format: 'mp3', speed: clamp(Number(voice.speed) || 1, 0.25, 4) };
     if (voice.tone && /gpt-4o/.test(s.openai_tts_model)) body.instructions = voice.tone;
     buf = await buffer('OpenAI', `${BASE_URLS.openai}/v1/audio/speech`, {
@@ -96,3 +130,17 @@ export async function composeMusic({ prompt, seconds, outPath, signal }) {
 }
 
 function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+
+/**
+ * Música de fondo según el proveedor elegido en Ajustes:
+ *  - 'local' (GRATIS): compositor local de Vimo, música original sin derechos de terceros.
+ *  - 'elevenlabs': ElevenLabs Music (de pago).
+ */
+export async function generateMusicTrack({ mood, prompt, seconds, outPath, signal }) {
+  if ((getSettings().music_provider || 'local') === 'local') {
+    await composeLocal({ mood, seconds, outPath, seed: Math.floor(Math.random() * 2 ** 31), signal });
+    return { provider: 'local' };
+  }
+  await composeMusic({ prompt, seconds, outPath, signal });
+  return { provider: 'elevenlabs' };
+}

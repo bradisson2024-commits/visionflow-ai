@@ -5,9 +5,10 @@ import { all, run } from './db.js';
 export const API_KEYS = {
   anthropic: { label: 'Anthropic (Claude)', env: 'ANTHROPIC_API_KEY', use: 'Análisis del guion, división en escenas y guiones con IA', url: 'https://console.anthropic.com/settings/keys' },
   openai: { label: 'OpenAI', env: 'OPENAI_API_KEY', use: 'Imágenes (gpt-image-1), voz (TTS) y, opcionalmente, análisis del guion', url: 'https://platform.openai.com/api-keys' },
-  gemini: { label: 'Google Gemini', env: 'GEMINI_API_KEY', use: 'Imágenes (Gemini Image) y, opcionalmente, análisis del guion', url: 'https://aistudio.google.com/apikey' },
+  gemini: { label: 'Google Gemini', env: 'GEMINI_API_KEY', use: 'GRATIS con límites para guion y escenas (cuota gratuita de AI Studio); las imágenes de Gemini normalmente requieren facturación', url: 'https://aistudio.google.com/apikey', free: true },
   replicate: { label: 'Replicate', env: 'REPLICATE_API_TOKEN', use: 'Imágenes con FLUX (FLUX Kontext para referencias de personaje)', url: 'https://replicate.com/account/api-tokens' },
   elevenlabs: { label: 'ElevenLabs', env: 'ELEVENLABS_API_KEY', use: 'Voces IA (narración) y Música IA', url: 'https://elevenlabs.io/app/settings/api-keys' },
+  groq: { label: 'Groq', env: 'GROQ_API_KEY', use: 'GRATIS (con límites): análisis del guion y guiones con modelos abiertos (Llama, GPT-OSS, Qwen)', url: 'https://console.groq.com/keys', free: true },
 };
 
 export const DEFAULTS = {
@@ -37,7 +38,27 @@ export const DEFAULTS = {
   default_voice_id: '',
   default_voice_name: '',
   default_voice_speed: '1',
+  // ---- Proveedores gratuitos / locales ----
+  groq_model: 'llama-3.3-70b-versatile',
+  ollama_url: 'http://127.0.0.1:11434',
+  ollama_model: 'qwen2.5:7b',
+  comfyui_url: 'http://127.0.0.1:8188',
+  comfyui_preset: 'sdxl_lightning',
+  comfyui_checkpoint: '',
+  comfyui_steps: '6',
+  comfyui_cfg: '2',
+  comfyui_sampler: 'dpmpp_sde',
+  comfyui_scheduler: 'karras',
+  comfyui_width: '1344',
+  comfyui_height: '768',
+  comfyui_negative: 'text, letters, watermark, signature, logo, caption, speech bubble, blurry, lowres, jpeg artifacts, deformed, extra limbs, bad anatomy, duplicate, cropped',
+  comfyui_workflow: '',
+  kokoro_url: 'http://127.0.0.1:8880',
+  music_provider: 'local',
 };
+
+/** Configuración de coste 0: todo gratis o local. */
+export const FREE_PRESET = { llm_provider: 'gemini', image_provider: 'comfyui', tts_provider: 'piper', music_provider: 'local' };
 
 // Permite apuntar los proveedores a otra URL (proxys corporativos o pruebas automáticas).
 export const BASE_URLS = {
@@ -46,6 +67,7 @@ export const BASE_URLS = {
   gemini: process.env.VIMO_GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com',
   replicate: process.env.VIMO_REPLICATE_BASE_URL || 'https://api.replicate.com',
   elevenlabs: process.env.VIMO_ELEVENLABS_BASE_URL || 'https://api.elevenlabs.io',
+  groq: process.env.VIMO_GROQ_BASE_URL || 'https://api.groq.com/openai',
 };
 
 function rawSettings() {

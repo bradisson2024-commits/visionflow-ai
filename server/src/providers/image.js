@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getSettings, requireKey, BASE_URLS } from '../settings.js';
 import { json, buffer, ProviderError } from './http.js';
+import { comfyImage } from './comfyui.js';
 
 const OPENAI_SIZE = { '16:9': '1536x1024', '9:16': '1024x1536', '1:1': '1024x1024' };
 const mime = p => (p.endsWith('.png') ? 'image/png' : p.endsWith('.webp') ? 'image/webp' : 'image/jpeg');
@@ -72,14 +73,23 @@ async function replicateImage({ prompt, refs, aspect, signal }) {
   return buffer('Replicate', url, {}, { signal });
 }
 
-const PROVIDERS = { openai: openaiImage, gemini: geminiImage, replicate: replicateImage };
+// GRATIS Y LOCAL: ComfyUI. Usa un prompt compacto (los modelos de difusión leen mejor
+// listas de rasgos que párrafos largos) y una semilla fija por proyecto para dar coherencia.
+async function comfyuiProvider({ prompt, compact, negative, refs, aspect, seed, signal, onProgress }) {
+  return comfyImage({ prompt: compact || prompt, negative, refs, aspect, seed, signal, onProgress });
+}
 
-/** Genera una imagen y la guarda en outPath. Devuelve outPath. */
-export async function generateImage({ prompt, refs = [], aspect = '16:9', outPath, signal }) {
+const PROVIDERS = { openai: openaiImage, gemini: geminiImage, replicate: replicateImage, comfyui: comfyuiProvider };
+
+/**
+ * Genera una imagen y la guarda en outPath. Devuelve outPath.
+ * compact/negative/seed solo los usan los motores de difusión locales (ComfyUI).
+ */
+export async function generateImage({ prompt, compact, negative, seed, refs = [], aspect = '16:9', outPath, signal, onProgress }) {
   const provider = getSettings().image_provider;
   const fn = PROVIDERS[provider];
   if (!fn) throw new Error('Proveedor de imágenes no válido: ' + provider);
-  const buf = await fn({ prompt, refs: refs.filter(p => p && fs.existsSync(p)), aspect, signal });
+  const buf = await fn({ prompt, compact, negative, seed, refs: refs.filter(p => p && fs.existsSync(p)), aspect, signal, onProgress });
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, buf);
   return outPath;

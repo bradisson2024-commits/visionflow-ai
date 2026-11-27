@@ -8,7 +8,7 @@ import { MEDIA_DIR, DATA_DIR } from './db.js';
 import { bus, recoverInterrupted } from './jobs.js';
 import './pipeline/produce.js';
 import { projects, script } from './routes/projects.js';
-import { styles, characters, avatars, voices, music, settings, keys } from './routes/assets.js';
+import { styles, characters, avatars, voices, music, settings, keys, providers } from './routes/assets.js';
 import { FFMPEG } from './media.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,6 +32,7 @@ app.use('/api/voices', voices);
 app.use('/api/music', music);
 app.use('/api/settings', settings);
 app.use('/api/keys', keys);
+app.use('/api/providers', providers);
 
 // Progreso en tiempo real (Server-Sent Events).
 app.get('/api/events', (req, res) => {

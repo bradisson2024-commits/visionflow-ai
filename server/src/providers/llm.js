@@ -86,7 +86,52 @@ async function geminiCall({ system, user, schema, signal }) {
   return schema ? parseJsonText('Gemini', text) : text.trim();
 }
 
-const CALLS = { anthropic: anthropicCall, openai: openaiCall, gemini: geminiCall };
+// ---- GRATIS: Groq (cuota gratuita con límites por minuto/día; API compatible con OpenAI) ----
+async function groqCall({ system, user, schema, signal }) {
+  const s = getSettings();
+  const body = {
+    model: s.groq_model,
+    messages: [
+      { role: 'system', content: schema ? `${system}\n\nResponde SOLO con un objeto JSON válido que cumpla exactamente este JSON Schema:\n${JSON.stringify(schema)}` : system },
+      { role: 'user', content: user },
+    ],
+    temperature: 0.4,
+  };
+  if (schema) body.response_format = { type: 'json_object' };
+  const r = await json('Groq', `${BASE_URLS.groq}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${requireKey('groq')}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }, { signal, retries: 4 });
+  const text = r.choices?.[0]?.message?.content || '';
+  return schema ? parseJsonText('Groq', text) : text.trim();
+}
+
+// ---- GRATIS Y LOCAL: Ollama (modelos abiertos en tu computador, sin límites ni coste) ----
+async function ollamaCall({ system, user, schema, signal }) {
+  const s = getSettings();
+  const base = s.ollama_url.replace(/\/$/, '');
+  const body = {
+    model: s.ollama_model,
+    stream: false,
+    messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+    options: { temperature: 0.4, num_ctx: 16384 },
+  };
+  if (schema) body.format = schema; // salidas estructuradas de Ollama (JSON Schema)
+  let r;
+  try {
+    // En CPU un modelo local puede tardar varios minutos en un guion largo.
+    r = await json('Ollama', `${base}/api/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, { signal, retries: 1, timeoutMs: 45 * 60_000 });
+  } catch (e) {
+    if (e.status === 0) throw new ProviderError('Ollama', 0, `no responde en ${base}. ¿Está abierto Ollama? (${e.message})`);
+    if (e.status === 404) throw new ProviderError('Ollama', 404, `el modelo «${s.ollama_model}» no está descargado. Ejecuta: ollama pull ${s.ollama_model}`);
+    throw e;
+  }
+  const text = r.message?.content || '';
+  return schema ? parseJsonText('Ollama', text) : text.trim();
+}
+
+const CALLS = { anthropic: anthropicCall, openai: openaiCall, gemini: geminiCall, groq: groqCall, ollama: ollamaCall };
 
 export async function llm(opts) {
   const provider = getSettings().llm_provider;

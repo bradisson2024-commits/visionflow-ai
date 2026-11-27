@@ -69,6 +69,29 @@ function fakeStoryboard(userText) {
   return { summary: 'Resumen de prueba generado por el servidor simulado.', characters, scenes };
 }
 
+let comfyN = 0;
+const comfyJobs = {};
+// Valida que el flujo enviado sea un grafo de ComfyUI correcto (formato API): nodos con class_type,
+// entradas obligatorias presentes y enlaces [id, salida] que apuntan a nodos existentes.
+const REQUIRED = {
+  CheckpointLoaderSimple: ['ckpt_name'], EmptyLatentImage: ['width', 'height', 'batch_size'], CLIPTextEncode: ['text', 'clip'],
+  KSampler: ['seed', 'steps', 'cfg', 'sampler_name', 'scheduler', 'denoise', 'model', 'positive', 'negative', 'latent_image'],
+  VAEDecode: ['samples', 'vae'], SaveImage: ['filename_prefix', 'images'],
+};
+function validateComfyWorkflow(wf) {
+  const errs = [];
+  if (!wf || typeof wf !== 'object') return ['workflow vacío'];
+  for (const [id, n] of Object.entries(wf)) {
+    if (!n.class_type) { errs.push(`nodo ${id} sin class_type`); continue; }
+    for (const k of REQUIRED[n.class_type] || []) if (!(k in n.inputs)) errs.push(`${n.class_type}.${k} falta`);
+    for (const v of Object.values(n.inputs)) if (Array.isArray(v) && !(String(v[0]) in wf)) errs.push(`enlace a nodo inexistente ${v[0]}`);
+    if (n.class_type === 'EmptyLatentImage' && (n.inputs.width % 8 || n.inputs.height % 8)) errs.push('dimensiones no múltiplo de 8');
+    if (n.class_type === 'CheckpointLoaderSimple' && !['dreamshaperXL_lightning.safetensors', 'dreamshaper_8.safetensors'].includes(n.inputs.ckpt_name)) errs.push('checkpoint inexistente ' + n.inputs.ckpt_name);
+  }
+  if (!Object.values(wf).some(n => n.class_type === 'SaveImage')) errs.push('sin SaveImage');
+  return errs;
+}
+
 const server = http.createServer(async (req, res) => {
   const body = await readBody(req);
   const url = new URL(req.url, 'http://x');
@@ -128,6 +151,61 @@ const server = http.createServer(async (req, res) => {
       const b = JSON.parse(body);
       rec.kind = 'tts'; rec.text = b.text;
       return send(200, makeTone(Math.max(1, b.text.split(/\s+/).length * 0.38), 200), 'audio/mpeg');
+    }
+    // ---- Ollama (API local) ----
+    if (url.pathname === '/api/tags') return send(200, { models: [{ name: 'qwen2.5:7b' }, { name: 'llama3.2:3b' }] });
+    if (url.pathname === '/api/chat') {
+      const b = JSON.parse(body);
+      rec.kind = 'llm'; rec.provider = 'ollama'; rec.model = b.model; rec.schema = typeof b.format === 'object';
+      const user = b.messages.find(m => m.role === 'user').content;
+      const content = rec.schema ? JSON.stringify(b.format.properties?.titles ? { titles: ['Título de prueba 1', 'Título de prueba 2', 'Título de prueba 3'] } : fakeStoryboard(user)) : 'Guion de prueba generado localmente. Esta es la segunda frase. Y esta es la tercera.';
+      rec.text = content;
+      return send(200, { model: b.model, message: { role: 'assistant', content }, done: true });
+    }
+    // ---- ComfyUI (API HTTP) ----
+    if (url.pathname === '/system_stats') return send(200, { system: { comfyui_version: 'mock' }, devices: [{ name: 'cpu', type: 'cpu', vram_total: 0 }] });
+    if (url.pathname === '/object_info/CheckpointLoaderSimple') return send(200, { CheckpointLoaderSimple: { input: { required: { ckpt_name: [['dreamshaperXL_lightning.safetensors', 'dreamshaper_8.safetensors']] } } } });
+    if (url.pathname === '/prompt' && req.method === 'POST') {
+      const b = JSON.parse(body);
+      const errs = validateComfyWorkflow(b.prompt);
+      rec.kind = 'image'; rec.provider = 'comfyui'; rec.errors = errs;
+      if (errs.length) return send(400, { error: { type: 'prompt_outputs_failed_validation', message: errs.join('; ') }, node_errors: {} });
+      const pos = Object.values(b.prompt).find(n => n.class_type === 'CLIPTextEncode' && !/watermark/.test(n.inputs.text));
+      const neg = Object.values(b.prompt).find(n => n.class_type === 'CLIPTextEncode' && /watermark/.test(n.inputs.text));
+      const lat = Object.values(b.prompt).find(n => n.class_type === 'EmptyLatentImage');
+      const ks = Object.values(b.prompt).find(n => n.class_type === 'KSampler');
+      rec.prompt = pos?.inputs.text; rec.negative = neg?.inputs.text; rec.seed = ks?.inputs.seed; rec.size = lat && `${lat.inputs.width}x${lat.inputs.height}`;
+      const id = 'p' + (++comfyN);
+      comfyJobs[id] = { at: Date.now(), prompt: rec.prompt || 'imagen', size: rec.size };
+      return send(200, { prompt_id: id, number: comfyN, node_errors: {} });
+    }
+    if (url.pathname === '/queue') return send(200, { queue_running: [], queue_pending: [] });
+    if (url.pathname.startsWith('/history/')) {
+      const id = url.pathname.split('/').pop();
+      const j = comfyJobs[id];
+      if (!j || Date.now() - j.at < 600) return send(200, {}); // aún generando
+      if (!j.file) {
+        const [w, h] = (j.size || '1344x768').split('x');
+        j.file = `vimo_${id}.png`;
+        fs.writeFileSync(path.join(tmp, j.file), makeImage('SCENE: ' + j.prompt.split(', ').slice(1, 3).join(', '), 0, `${w}x${h}`));
+      }
+      return send(200, { [id]: { status: { status_str: 'success', completed: true, messages: [] }, outputs: { 9: { images: [{ filename: j.file, subfolder: '', type: 'output' }] } } } });
+    }
+    if (url.pathname === '/view') return send(200, fs.readFileSync(path.join(tmp, url.searchParams.get('filename'))), 'image/png');
+    // ---- Groq (compatible con OpenAI) ----
+    if (url.pathname === '/openai/v1/models') return send(200, { data: [{ id: 'llama-3.3-70b-versatile' }, { id: 'openai/gpt-oss-120b' }, { id: 'whisper-large-v3' }] });
+    if (url.pathname === '/openai/v1/chat/completions') {
+      const b = JSON.parse(body);
+      rec.kind = 'llm'; rec.provider = 'groq';
+      const user = b.messages.find(m => m.role === 'user').content;
+      const content = b.response_format ? JSON.stringify(fakeStoryboard(user)) : 'Guion de prueba.';
+      return send(200, { choices: [{ message: { role: 'assistant', content } }] });
+    }
+    // ---- Catálogo de voces de Piper (sirve archivos reales de voz descargados por la prueba) ----
+    if (url.pathname === '/piper-voices/voices.json') return send(200, { 'es_ES-mls_10246-low': { key: 'es_ES-mls_10246-low', name: 'mls_10246', quality: 'low', language: { code: 'es_ES', name_native: 'Español', country_english: 'Spain' }, files: { 'es/es_ES/mls_10246/low/es_ES-mls_10246-low.onnx': { size_bytes: 63104526 }, 'es/es_ES/mls_10246/low/es_ES-mls_10246-low.onnx.json': { size_bytes: 5773 } } } });
+    if (url.pathname.startsWith('/piper-voices/es/')) {
+      const f = path.join(process.env.PIPER_VOICE_SRC || '', url.pathname.endsWith('.json') ? 'es-mls_10246-low.onnx.json' : 'es-mls_10246-low.onnx');
+      return send(200, fs.readFileSync(f), 'application/octet-stream');
     }
     send(404, { error: { message: 'mock: ruta no implementada ' + url.pathname } });
   } catch (e) {

@@ -4,7 +4,9 @@ import { api, useApi, countWords } from '../api.js';
 import { Toggle, Seg, Modal, Spinner, useAction } from '../components/ui.jsx';
 import Catalog from '../components/Catalog.jsx';
 import VoiceList from '../components/VoiceList.jsx';
+import { ServicesStatus } from './Sistema.jsx';
 
+const VOICE_PROVIDER = { piper: 'Piper · gratis', kokoro: 'Kokoro · gratis', elevenlabs: 'ElevenLabs', openai: 'OpenAI' };
 const LANGS = [['es', 'Español'], ['en', 'English'], ['pt', 'Português'], ['fr', 'Français'], ['it', 'Italiano'], ['de', 'Deutsch']];
 
 const blank = settings => ({
@@ -31,6 +33,7 @@ export default function CrearVideo({ projectId, navigate, prefill }) {
   const [voiceModal, setVoiceModal] = useState(false);
   const [aiModal, setAiModal] = useState(false);
   const [more, setMore] = useState(false);
+  const [titles, setTitles] = useState(null);
   const [busy, run] = useAction();
 
   useEffect(() => {
@@ -53,7 +56,7 @@ export default function CrearVideo({ projectId, navigate, prefill }) {
   const words = countWords(form.script);
   const minutes = words / 150 / (form.narration.speed || 1);
   const style = styles.find(s => s.id === form.style_id);
-  const voiceMissing = form.narration.enabled && !form.narration.voice_id && form.narration.provider === 'elevenlabs';
+  const voiceMissing = form.narration.enabled && !form.narration.voice_id && form.narration.provider !== 'openai';
   const canCreate = form.title.trim() && words > 0 && style?.selectable && !voiceMissing && !form.job;
 
   const save = async () => {
@@ -76,11 +79,16 @@ export default function CrearVideo({ projectId, navigate, prefill }) {
         </div>
         {form.id && <button className="btn" onClick={() => navigate(`/proyecto/${form.id}`)}><Film /> Ver proyecto</button>}
       </div>
+ <ServicesStatus compact />
       {form.job && <div className="alert warn" style={{ marginBottom: 14 }}><AlertTriangle />Este proyecto se está generando. Podrás editarlo cuando termine.</div>}
 
       <div className="card section">
-        <h2 className="section-title"><Type /> Nombre del video</h2>
+        <h2 className="section-title"><Type /> Nombre del video
+          <span className="right"><button className="btn sm" disabled={!!busy || !(form.title.trim() || form.script.trim())} onClick={() => run('titles', async () => setTitles((await api.post('/script/titles', { title: form.title, script: form.script, language: form.narration.language })).titles))}>
+            {busy === 'titles' ? <Spinner size={14} /> : <Wand2 />} Sugerir títulos</button></span>
+        </h2>
         <input className="input lg" placeholder="Ej.: El hombre que caminaba solo" value={form.title} onChange={e => set({ title: e.target.value })} maxLength={140} />
+        {titles?.length > 0 && <div className="row" style={{ marginTop: 10, gap: 6 }}>{titles.map(t => <button key={t} className="btn sm" onClick={() => { set({ title: t }); setTitles(null); }}>{t}</button>)}</div>}
       </div>
 
       <div className="card section">
@@ -93,12 +101,12 @@ export default function CrearVideo({ projectId, navigate, prefill }) {
               <span style={{ fontWeight: 550, fontSize: 13, color: 'var(--ink-2)' }}>Voz</span>
               <button className="btn" style={{ justifyContent: 'space-between' }} onClick={() => setVoiceModal(true)}>
                 <span>{form.narration.voice_name || (form.narration.provider === 'openai' ? 'Alloy (OpenAI)' : 'Elegir voz…')}</span>
-                <span className="chip">{form.narration.provider === 'openai' ? 'OpenAI' : 'ElevenLabs'}</span>
+                <span className={`chip ${['piper', 'kokoro'].includes(form.narration.provider) ? 'ok' : ''}`}>{VOICE_PROVIDER[form.narration.provider] || form.narration.provider}</span>
               </button>
-              {voiceMissing && <span className="hint" style={{ color: 'var(--danger)' }}>Elige una voz de ElevenLabs.</span>}
+              {voiceMissing && <span className="hint" style={{ color: 'var(--danger)' }}>Elige una voz.</span>}
             </div>
             <label className="field">Velocidad: {Number(form.narration.speed).toFixed(2)}×
-              <input type="range" min={form.narration.provider === 'openai' ? 0.5 : 0.7} max={form.narration.provider === 'openai' ? 2 : 1.2} step="0.05" value={form.narration.speed} onChange={e => setN({ speed: Number(e.target.value) })} />
+              <input type="range" min={form.narration.provider === 'elevenlabs' ? 0.7 : 0.5} max={form.narration.provider === 'elevenlabs' ? 1.2 : 2} step="0.05" value={form.narration.speed} onChange={e => setN({ speed: Number(e.target.value) })} />
             </label>
             <label className="field">Idioma
               <select className="select" value={form.narration.language} onChange={e => setN({ language: e.target.value })}>{LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
@@ -143,12 +151,12 @@ export default function CrearVideo({ projectId, navigate, prefill }) {
 
       {voiceModal && (
         <Modal title="Elegir voz" onClose={() => setVoiceModal(false)} width={820}>
-          <VoiceList provider={form.narration.provider} onProvider={p => setN({ provider: p, voice_id: p === 'openai' ? 'alloy' : null, voice_name: p === 'openai' ? 'Alloy' : null })}
+          <VoiceList provider={form.narration.provider} onProvider={p => setN({ provider: p, voice_id: p === 'openai' ? 'alloy' : null, voice_name: p === 'openai' ? 'Alloy' : null, speed: 1 })}
             selected={form.narration.voice_id} settings={form.narration}
             onSelect={v => { setN({ voice_id: v.id, voice_name: v.name, provider: v.provider }); setVoiceModal(false); }} />
         </Modal>
       )}
-      {aiModal && <ScriptAI title={form.title} language={form.narration.language} onClose={() => setAiModal(false)} onDone={(script) => { set({ script }); setAiModal(false); }} />}
+      {aiModal && <ScriptAI title={form.title} script={form.script} language={form.narration.language} onClose={() => setAiModal(false)} onDone={(script) => { set({ script }); setAiModal(false); }} />}
     </div>
   );
 }
@@ -206,12 +214,23 @@ function MoreOptions({ form, set }) {
   );
 }
 
-function ScriptAI({ title, language, onClose, onDone }) {
+function ScriptAI({ title, script, language, onClose, onDone }) {
   const [v, setV] = useState({ title, idea: '', minutes: 3, tone: '' });
+  const [mode, setMode] = useState(script.trim() ? 'improve' : 'write');
+  const [instr, setInstr] = useState('');
   const [busy, run] = useAction();
   return (
-    <Modal title="Escribir guion con IA" onClose={onClose}>
+    <Modal title="Guion con IA" onClose={onClose}>
       <div className="stack">
+        <Seg value={mode} onChange={setMode} options={[{ value: 'write', label: 'Escribir uno nuevo' }, { value: 'improve', label: 'Mejorar el guion actual' }]} />
+        {mode === 'improve' ? <>
+          <label className="field">Qué quieres mejorar (opcional)<textarea className="textarea" value={instr} onChange={e => setInstr(e.target.value)} placeholder="Ej.: gancho inicial más fuerte, frases más cortas, más suspenso…" /></label>
+          <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <button className="btn" onClick={onClose}>Cancelar</button>
+            <button className="btn gold" disabled={!!busy || !script.trim()} onClick={() => run('i', async () => { const r = await api.post('/script/improve', { script, instructions: instr, language }); onDone(r.script); }, 'Guion mejorado')}>
+              {busy ? <Spinner /> : <Wand2 />} Mejorar guion</button>
+          </div>
+        </> : <>
         <label className="field">Título o tema<input className="input" value={v.title} onChange={e => setV({ ...v, title: e.target.value })} /></label>
         <label className="field">Idea, datos o indicaciones<textarea className="textarea" value={v.idea} onChange={e => setV({ ...v, idea: e.target.value })} placeholder="De qué trata, puntos que debe incluir, público…" /></label>
         <div className="grid2">
@@ -224,6 +243,7 @@ function ScriptAI({ title, language, onClose, onDone }) {
             {busy ? <Spinner /> : <Wand2 />} Generar guion
           </button>
         </div>
+        </>}
       </div>
     </Modal>
   );

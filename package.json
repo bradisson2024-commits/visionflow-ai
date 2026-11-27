@@ -12,7 +12,8 @@
     "start": "node --disable-warning=ExperimentalWarning server/src/index.js",
     "dev": "node --watch --disable-warning=ExperimentalWarning server/src/index.js",
     "dev:web": "npm --prefix web run dev",
-    "test:e2e": "node --disable-warning=ExperimentalWarning test/e2e.mjs"
+    "test:e2e": "node --disable-warning=ExperimentalWarning test/e2e.mjs",
+    "test:free": "node --disable-warning=ExperimentalWarning test/e2e-free.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.14.0",

@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
-import { Play, Square, Check, Mic, AlertTriangle } from 'lucide-react';
+import { Play, Square, Check, Mic, AlertTriangle, Download } from 'lucide-react';
 import { api, useApi } from '../api.js';
 import { Seg, Spinner, useAction, Empty } from './ui.jsx';
 
 /** Lista de voces del proveedor con escucha previa real y selección. */
 export default function VoiceList({ provider, onProvider, selected, onSelect, settings = {}, sampleText }) {
-  const { data: voices, error, loading } = useApi(`/voices?provider=${provider}`, [provider]);
+  const { data: voices, error, loading, reload } = useApi(`/voices?provider=${provider}`, [provider]);
   const [gender, setGender] = useState('todas');
   const [q, setQ] = useState('');
   const [playing, setPlaying] = useState(null);
@@ -35,7 +35,7 @@ export default function VoiceList({ provider, onProvider, selected, onSelect, se
   return (
     <div className="stack">
       <div className="row">
-        <Seg value={provider} onChange={p => { stop(); onProvider(p); }} options={[{ value: 'elevenlabs', label: 'ElevenLabs' }, { value: 'openai', label: 'OpenAI TTS' }]} />
+        <Seg value={provider} onChange={p => { stop(); onProvider(p); }} options={[{ value: 'piper', label: 'Piper (gratis)' }, { value: 'kokoro', label: 'Kokoro (gratis)' }, { value: 'elevenlabs', label: 'ElevenLabs' }, { value: 'openai', label: 'OpenAI TTS' }]} />
         <Seg value={gender} onChange={setGender} options={[{ value: 'todas', label: 'Todas' }, { value: 'femenina', label: 'Femeninas' }, { value: 'masculina', label: 'Masculinas' }]} />
         <input className="input" style={{ maxWidth: 220 }} placeholder="Buscar por nombre, idioma…" value={q} onChange={e => setQ(e.target.value)} />
       </div>
@@ -45,7 +45,7 @@ export default function VoiceList({ provider, onProvider, selected, onSelect, se
       <div className="card list" style={{ maxHeight: 420, overflow: 'auto' }}>
         {list.map(v => (
           <div className="list-row" key={v.id} style={selected === v.id ? { background: 'var(--gold-soft)' } : undefined}>
-            <button className="icon-btn" title={v.preview_url ? 'Escuchar muestra' : 'Generar y escuchar muestra'} onClick={() => play(v)}>
+            <button className="icon-btn" disabled={v.installed === false} title={v.installed === false ? 'Descarga la voz para escucharla' : v.preview_url ? 'Escuchar muestra' : 'Generar y escuchar muestra'} onClick={() => play(v)}>
               {busy === v.id ? <Spinner /> : playing === v.id ? <Square /> : <Play />}
             </button>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -55,9 +55,11 @@ export default function VoiceList({ provider, onProvider, selected, onSelect, se
               </div>
             </div>
             {v.preview_url && <button className="btn sm ghost" onClick={() => play(v, true)} title="Escuchar con tu texto y ajustes">Con mi texto</button>}
-            {onSelect && (selected === v.id
-              ? <span className="chip gold"><Check /> Seleccionada</span>
-              : <button className="btn sm" onClick={() => onSelect(v)}>Usar</button>)}
+            {v.installed === false
+              ? <button className="btn sm" disabled={!!busy} onClick={() => run('dl' + v.id, async () => { await api.post(`/providers/piper/voices/${encodeURIComponent(v.id)}`); await reload(); }, `Voz ${v.name} descargada`)}>{busy === 'dl' + v.id ? <Spinner size={14} /> : <Download />} Descargar</button>
+              : onSelect && (selected === v.id
+                ? <span className="chip gold"><Check /> Seleccionada</span>
+                : <button className="btn sm" onClick={() => onSelect(v)}>Usar</button>)}
           </div>
         ))}
       </div>

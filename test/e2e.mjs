@@ -75,6 +75,9 @@ try {
   }
   check('Claves API guardadas y probadas desde la interfaz', true);
 
+  // Esta prueba cubre los proveedores de pago (la gratuita está en e2e-free.mjs): música con ElevenLabs.
+  await fetch(`http://127.0.0.1:${APP}/api/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ music_provider: 'elevenlabs' }) });
+
   // ---- 1–4. Crear Video ----
   await page.goto(base + '/#/crear');
   await page.getByRole('heading', { name: 'Crear Video' }).waitFor();

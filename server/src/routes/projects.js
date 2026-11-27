@@ -5,7 +5,7 @@ import { all, get, run, now, uid, tx, mediaUrl, parseJSON, projectDir } from '..
 import { loadProject, loadScenes, projectCast } from '../pipeline/produce.js';
 import { enqueue, cancel, activeJob, lastJob, publicJob } from '../jobs.js';
 import { listStyles } from '../styles.js';
-import { countWords, estimateSeconds, writeScript } from '../pipeline/analyze.js';
+import { countWords, estimateSeconds, writeScript, improveScript, suggestTitles } from '../pipeline/analyze.js';
 
 export const projects = Router();
 
@@ -237,6 +237,18 @@ script.post('/generate', async (req, res) => {
   const b = req.body || {};
   const text = await writeScript({ title: b.title, idea: b.idea, minutes: Math.min(30, Math.max(0.5, Number(b.minutes) || 3)), tone: b.tone, language: b.language || 'es' });
   res.json({ script: text, words: countWords(text) });
+});
+
+script.post('/improve', async (req, res) => {
+  const b = req.body || {};
+  if (!b.script?.trim()) return res.status(400).json({ error: 'No hay guion que mejorar.' });
+  const text = await improveScript({ script: b.script, instructions: b.instructions, language: b.language || 'es' });
+  res.json({ script: text, words: countWords(text) });
+});
+script.post('/titles', async (req, res) => {
+  const b = req.body || {};
+  if (!b.title?.trim() && !b.script?.trim()) return res.status(400).json({ error: 'Escribe un título o un guion primero.' });
+  res.json({ titles: await suggestTitles({ title: b.title, script: b.script, language: b.language || 'es' }) });
 });
 
 export { parseJSON };

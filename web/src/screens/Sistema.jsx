@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { KeyRound, Check, X, ExternalLink, PlayCircle, AlertTriangle, Save, Info } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { KeyRound, Check, X, ExternalLink, PlayCircle, AlertTriangle, Save, Info, Sparkles, Download, RefreshCw, Server } from 'lucide-react';
 import { api, useApi } from '../api.js';
 import { Spinner, useAction } from '../components/ui.jsx';
 
@@ -21,27 +21,10 @@ Esa noche, mientras el tren cruzaba la ciudad iluminada, Tomás sonrió por prim
 
 // ---------------- Demo ----------------
 export function Demo({ navigate }) {
-  const { data: keys } = useApi('/keys');
-  const has = id => keys?.find(k => k.id === id)?.configured;
-  const need = [
-    ['Análisis del guion', ['anthropic', 'openai', 'gemini'], 'Anthropic, OpenAI o Gemini'],
-    ['Imágenes', ['openai', 'gemini', 'replicate'], 'OpenAI, Gemini o Replicate'],
-    ['Voz IA', ['elevenlabs', 'openai'], 'ElevenLabs u OpenAI'],
-    ['Música IA (opcional)', ['elevenlabs'], 'ElevenLabs'],
-  ];
   return (
     <div className="page prose">
       <div className="page-head"><div><h1 className="page-title">Demo</h1><p className="page-sub">Cómo funciona Vimo, paso a paso, con un guion de ejemplo.</p></div></div>
-      <div className="card section">
-        <h2 className="section-title"><KeyRound /> Servicios conectados</h2>
-        {!keys ? <Spinner /> : need.map(([label, ids, names]) => (
-          <div key={label} className="row" style={{ padding: '4px 0' }}>
-            {ids.some(has) ? <Check color="var(--ok)" size={16} /> : <X color="var(--danger)" size={16} />}
-            <b style={{ minWidth: 170 }}>{label}</b><span className="hint">{names}</span>
-          </div>
-        ))}
-        {keys && !need.slice(0, 3).every(([, ids]) => ids.some(has)) && <div className="alert warn" style={{ marginTop: 10 }}><AlertTriangle /><div>Faltan claves para generar un video completo. <button className="btn sm" onClick={() => navigate('/claves')}>Configurar claves API</button></div></div>}
-      </div>
+      <ServicesStatus />
       <div className="card section">
         <h2 className="section-title"><PlayCircle /> El proceso</h2>
         <ol>
@@ -70,12 +53,15 @@ export function ClavesAPI() {
   return (
     <div className="page">
       <div className="page-head"><div><h1 className="page-title">Claves API</h1><p className="page-sub">Conecta los servicios de IA que usará Vimo. Las claves se guardan solo en tu servidor (base de datos local) y nunca se muestran completas.</p></div></div>
+      <ServicesStatus />
+      <LocalServices />
+      <h2 className="section-title" style={{ margin: '22px 0 10px' }}><KeyRound /> Claves de servicios en la nube</h2>
       {!keys ? <Spinner /> : (
         <div className="stack">
           {keys.map(k => (
             <div className="card section" key={k.id} style={{ marginBottom: 0 }}>
               <div className="row">
-                <b style={{ fontSize: 15 }}>{k.label}</b>
+                <b style={{ fontSize: 15 }}>{k.label}</b>{k.free && <span className="chip gold">Gratis con límites</span>}
                 {k.configured ? <span className="chip ok"><Check /> Configurada {k.source === 'env' ? '(variable de entorno)' : ''} · {k.masked}</span> : <span className="chip">Sin configurar</span>}
                 <div className="spacer" />
                 <a className="btn sm ghost" href={k.url} target="_blank" rel="noreferrer">Obtener clave <ExternalLink /></a>
@@ -92,6 +78,85 @@ export function ClavesAPI() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+
+const KIND_LABEL = { llm: 'Guion y escenas', image: 'Imágenes', tts: 'Voz', music: 'Música', render: 'Montaje y render' };
+
+/** Estado real de los proveedores elegidos en Ajustes (qué funciona y qué falta). */
+export function ServicesStatus({ compact }) {
+  const [st, setSt] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const load = async () => { setLoading(true); try { setSt(await api.get('/providers/status')); } finally { setLoading(false); } };
+  useEffect(() => { load(); }, []);
+  if (!st) return <div className="card section"><Spinner /> Comprobando servicios…</div>;
+  const missing = Object.values(st).filter(x => !x.ready).length;
+  if (compact && !missing) return null;
+  return (
+    <div className="card section" style={missing ? { borderColor: '#f3dc8c' } : undefined}>
+      <h2 className="section-title"><Server /> Servicios que usará Vimo
+        <span className="right">{missing ? <span className="chip gold">{missing} por conectar</span> : <span className="chip ok"><Check /> Todo listo</span>}
+          <button className="btn sm" onClick={load} disabled={loading}>{loading ? <Spinner size={14} /> : <RefreshCw />} Comprobar</button></span>
+      </h2>
+      <div className="list">
+        {Object.entries(st).map(([kind, x]) => (
+          <div key={kind} className="list-row" style={{ padding: '8px 4px' }}>
+            {x.ready ? <Check color="var(--ok)" size={16} /> : <X color="var(--danger)" size={16} />}
+            <b style={{ minWidth: 150 }}>{KIND_LABEL[kind]}</b>
+            <span style={{ minWidth: 200 }}>{x.label}</span>
+            <span className={`chip ${/Gratis/.test(x.cost) ? 'ok' : ''}`}>{x.cost}</span>
+            <span className="hint" style={{ flex: 1 }}>{x.message}{!x.ready && x.fix ? ` — ${x.fix}` : ''}</span>
+          </div>
+        ))}
+      </div>
+      <p className="hint" style={{ margin: '8px 0 0' }}>Los proveedores se eligen en «Ajustes» (botón «Usar configuración gratuita» para coste $0).</p>
+    </div>
+  );
+}
+
+function LocalServices() {
+  const { data: piper, setData: setPiper } = useApi('/providers/piper');
+  const [busy, run] = useAction();
+  return (
+    <div className="card section">
+      <h2 className="section-title"><Server /> Servicios gratuitos y locales <span className="right">sin claves, sin créditos: se ejecutan en tu computador</span></h2>
+      <div className="stack" style={{ gap: 16 }}>
+        <div>
+          <div className="row"><b>Piper — voz local</b><span className="chip ok">Gratis · sin límites · funciona en CPU</span>
+            {piper?.installed ? <span className="chip ok"><Check /> Instalado · {piper.voices.length} voz/voces</span> : <span className="chip">No instalado</span>}
+            <div className="spacer" />
+            {!piper?.installed && <button className="btn sm gold" disabled={!!busy} onClick={() => run('piper', async () => setPiper(await api.post('/providers/piper/install')), 'Piper instalado')}>{busy === 'piper' ? <Spinner size={14} /> : <Download />} Instalar Piper (≈ 25 MB)</button>}
+          </div>
+          <p className="hint" style={{ margin: '4px 0 0' }}>Después descarga voces en español en «Voces» → Piper (cada voz se descarga una sola vez, 20–110 MB).</p>
+        </div>
+        <div>
+          <div className="row"><b>ComfyUI — imágenes locales</b><span className="chip ok">Gratis · sin límites</span><span className="chip gold">Lento sin tarjeta gráfica NVIDIA</span></div>
+          <ol className="hint" style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+            <li>Descarga «ComfyUI portable» para Windows desde <span className="kbd">github.com/comfyanonymous/ComfyUI/releases</span> y extráelo con 7-Zip.</li>
+            <li>Descarga un modelo <span className="kbd">.safetensors</span> a <span className="kbd">ComfyUI\models\checkpoints</span>. Recomendados: <b>DreamShaper XL Lightning</b> (SDXL, 4–8 pasos, ≈7 GB; necesita GPU con 8 GB) o <b>DreamShaper 8</b> (SD 1.5, ≈2 GB; para equipos modestos o CPU). Ambos en <span className="kbd">huggingface.co/Lykon</span>.</li>
+            <li>Ábrelo con <span className="kbd">run_nvidia_gpu.bat</span> (NVIDIA) o <span className="kbd">run_cpu.bat</span>. Debe quedar en <span className="kbd">http://127.0.0.1:8188</span>.</li>
+            <li>En «Ajustes → Imágenes» elige ComfyUI y pulsa el preajuste de tu modelo. En CPU cada imagen puede tardar varios minutos.</li>
+          </ol>
+        </div>
+        <div>
+          <div className="row"><b>Ollama — guion y escenas con modelos locales</b><span className="chip ok">Gratis · sin límites</span></div>
+          <ol className="hint" style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+            <li>Instálalo desde <span className="kbd">ollama.com/download</span> (o <span className="kbd">winget install Ollama.Ollama</span>).</li>
+            <li>En PowerShell: <span className="kbd">ollama pull qwen2.5:7b</span> (≈4,7 GB, 8 GB de RAM o más) o <span className="kbd">ollama pull qwen2.5:3b</span> (≈2 GB, equipos modestos; peor calidad).</li>
+            <li>En «Ajustes → Modelos de lenguaje» elige Ollama.</li>
+          </ol>
+        </div>
+        <div>
+          <div className="row"><b>Kokoro — voz local alternativa</b><span className="chip ok">Gratis · sin límites</span></div>
+          <p className="hint" style={{ margin: '4px 0 0' }}>Necesita Docker Desktop. En PowerShell: <span className="kbd">docker run -d -p 8880:8880 ghcr.io/remsky/kokoro-fastapi-cpu:latest</span>. Voces en español: ef_dora, em_alex, em_santa. Después elige Kokoro en «Voces».</p>
+        </div>
+        <div>
+          <div className="row"><b>Gemini y Groq — guion en la nube con cuota gratuita</b><span className="chip gold">Gratis con límites</span></div>
+          <p className="hint" style={{ margin: '4px 0 0' }}>Crea la clave gratis (abajo) y elige el proveedor en Ajustes. Tienen límites de peticiones por minuto y por día: si se superan, espera y pulsa «Reanudar».</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -130,57 +195,109 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 }
 
 // ---------------- Ajustes ----------------
+const FREE = ' — GRATIS';
+// [clave, etiqueta, opciones | 'models:proveedor' | 'textarea' | undefined, mostrar-si(valores)]
 const FIELDS = [
-  ['Modelos de lenguaje (análisis del guion)', [
-    ['llm_provider', 'Proveedor', [['anthropic', 'Anthropic (Claude)'], ['openai', 'OpenAI'], ['gemini', 'Google Gemini']]],
-    ['anthropic_model', 'Modelo de Claude'], ['openai_llm_model', 'Modelo de OpenAI'], ['gemini_llm_model', 'Modelo de Gemini'],
+  ['Modelos de lenguaje (guion, escenas y prompts)', [
+    ['llm_provider', 'Proveedor', [['gemini', 'Google Gemini' + ' — gratis con límites'], ['groq', 'Groq — gratis con límites'], ['ollama', 'Ollama (local)' + FREE], ['anthropic', 'Anthropic (Claude) — de pago'], ['openai', 'OpenAI — de pago']]],
+    ['gemini_llm_model', 'Modelo de Gemini', null, v => v.llm_provider === 'gemini'],
+    ['groq_model', 'Modelo de Groq', 'models:groq', v => v.llm_provider === 'groq'],
+    ['ollama_model', 'Modelo de Ollama', 'models:ollama', v => v.llm_provider === 'ollama'],
+    ['ollama_url', 'Dirección de Ollama', null, v => v.llm_provider === 'ollama'],
+    ['anthropic_model', 'Modelo de Claude', null, v => v.llm_provider === 'anthropic'],
+    ['openai_llm_model', 'Modelo de OpenAI', null, v => v.llm_provider === 'openai'],
   ]],
   ['Imágenes', [
-    ['image_provider', 'Proveedor', [['openai', 'OpenAI (gpt-image-1)'], ['gemini', 'Google Gemini Image'], ['replicate', 'Replicate (FLUX)']]],
-    ['openai_image_model', 'Modelo de OpenAI'], ['openai_image_quality', 'Calidad OpenAI', [['low', 'Baja'], ['medium', 'Media'], ['high', 'Alta']]],
-    ['gemini_image_model', 'Modelo de Gemini'], ['replicate_model', 'Modelo Replicate (sin referencia)'], ['replicate_ref_model', 'Modelo Replicate (con referencia)'],
+    ['image_provider', 'Proveedor', [['comfyui', 'ComfyUI (local)' + FREE], ['openai', 'OpenAI (gpt-image-1) — de pago'], ['gemini', 'Google Gemini Image — de pago'], ['replicate', 'Replicate (FLUX) — de pago']]],
+    ['comfyui_url', 'Dirección de ComfyUI', null, v => v.image_provider === 'comfyui'],
+    ['comfyui_checkpoint', 'Modelo (checkpoint) — vacío = el primero', 'models:comfyui', v => v.image_provider === 'comfyui'],
+    ['comfyui_steps', 'Pasos', null, v => v.image_provider === 'comfyui'],
+    ['comfyui_cfg', 'CFG', null, v => v.image_provider === 'comfyui'],
+    ['comfyui_sampler', 'Sampler', [['euler', 'euler'], ['euler_ancestral', 'euler_ancestral'], ['dpmpp_2m', 'dpmpp_2m'], ['dpmpp_sde', 'dpmpp_sde'], ['dpmpp_2m_sde', 'dpmpp_2m_sde'], ['lcm', 'lcm']], v => v.image_provider === 'comfyui'],
+    ['comfyui_scheduler', 'Scheduler', [['normal', 'normal'], ['karras', 'karras'], ['sgm_uniform', 'sgm_uniform'], ['simple', 'simple'], ['exponential', 'exponential']], v => v.image_provider === 'comfyui'],
+    ['comfyui_width', 'Ancho (16:9)', null, v => v.image_provider === 'comfyui'],
+    ['comfyui_height', 'Alto (16:9)', null, v => v.image_provider === 'comfyui'],
+    ['comfyui_negative', 'Prompt negativo', 'textarea', v => v.image_provider === 'comfyui'],
+    ['comfyui_workflow', 'Flujo personalizado (opcional, JSON «Save (API Format)» con {{prompt}}, {{negative}}, {{seed}}, {{width}}, {{height}}, {{ref_image}})', 'textarea', v => v.image_provider === 'comfyui'],
+    ['openai_image_model', 'Modelo de OpenAI', null, v => v.image_provider === 'openai'],
+    ['openai_image_quality', 'Calidad OpenAI', [['low', 'Baja'], ['medium', 'Media'], ['high', 'Alta']], v => v.image_provider === 'openai'],
+    ['gemini_image_model', 'Modelo de Gemini', null, v => v.image_provider === 'gemini'],
+    ['replicate_model', 'Modelo Replicate (sin referencia)', null, v => v.image_provider === 'replicate'],
+    ['replicate_ref_model', 'Modelo Replicate (con referencia)', null, v => v.image_provider === 'replicate'],
     ['image_concurrency', 'Imágenes en paralelo', [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['6', '6']]],
   ]],
   ['Voz', [
-    ['tts_provider', 'Proveedor por defecto', [['elevenlabs', 'ElevenLabs'], ['openai', 'OpenAI TTS']]],
-    ['elevenlabs_tts_model', 'Modelo de ElevenLabs', [['eleven_multilingual_v2', 'Multilingual v2'], ['eleven_turbo_v2_5', 'Turbo v2.5'], ['eleven_flash_v2_5', 'Flash v2.5'], ['eleven_v3', 'Eleven v3']]],
-    ['openai_tts_model', 'Modelo de OpenAI', [['gpt-4o-mini-tts', 'gpt-4o-mini-tts'], ['tts-1-hd', 'tts-1-hd'], ['tts-1', 'tts-1']]],
+    ['tts_provider', 'Proveedor por defecto', [['piper', 'Piper (local)' + FREE], ['kokoro', 'Kokoro (local)' + FREE], ['elevenlabs', 'ElevenLabs — plan gratis limitado / de pago'], ['openai', 'OpenAI TTS — de pago']]],
+    ['kokoro_url', 'Dirección de Kokoro-FastAPI', null, v => v.tts_provider === 'kokoro'],
+    ['elevenlabs_tts_model', 'Modelo de ElevenLabs', [['eleven_multilingual_v2', 'Multilingual v2'], ['eleven_turbo_v2_5', 'Turbo v2.5'], ['eleven_flash_v2_5', 'Flash v2.5'], ['eleven_v3', 'Eleven v3']], v => v.tts_provider === 'elevenlabs'],
+    ['openai_tts_model', 'Modelo de OpenAI', [['gpt-4o-mini-tts', 'gpt-4o-mini-tts'], ['tts-1-hd', 'tts-1-hd'], ['tts-1', 'tts-1']], v => v.tts_provider === 'openai'],
     ['language', 'Idioma por defecto', [['es', 'Español'], ['en', 'English'], ['pt', 'Português'], ['fr', 'Français'], ['it', 'Italiano'], ['de', 'Deutsch']]],
   ]],
-  ['Video', [
+  ['Música', [
+    ['music_provider', 'Música IA', [['local', 'Compositor local de Vimo' + FREE], ['elevenlabs', 'ElevenLabs Music — de pago']]],
+    ['music_volume', 'Volumen de música por defecto (0–1)'],
+    ['music_ducking', 'Bajar música cuando habla la voz', [['on', 'Sí'], ['off', 'No']]],
+  ]],
+  ['Video (FFmpeg, gratis y local)', [
     ['resolution', 'Resolución', [['1080p', '1080p'], ['720p', '720p']]],
     ['fps', 'Fotogramas por segundo', [['24', '24'], ['25', '25'], ['30', '30']]],
     ['transition', 'Transición entre escenas', [['fade', 'Fundido'], ['cut', 'Corte']]],
     ['camera_motion', 'Movimiento de cámara', [['on', 'Activado'], ['off', 'Desactivado']]],
     ['scene_padding', 'Pausa tras cada escena (s)'],
   ]],
-  ['Audio', [
-    ['music_volume', 'Volumen de música por defecto (0–1)'],
-    ['music_ducking', 'Bajar música cuando habla la voz', [['on', 'Sí'], ['off', 'No']]],
-  ]],
 ];
+
+function ModelInput({ provider, value, onChange }) {
+  const [list, setList] = useState(null);
+  useEffect(() => { api.get(`/providers/models?provider=${provider}`).then(setList).catch(() => setList([])); }, [provider]);
+  const id = `dl-${provider}`;
+  return (
+    <>
+      <input className="input" list={id} value={value} onChange={e => onChange(e.target.value)} placeholder={list?.length ? 'Elige o escribe…' : 'Sin conexión: escribe el nombre'} />
+      <datalist id={id}>{(list || []).map(m => <option key={m} value={m} />)}</datalist>
+      <span className="hint">{list == null ? 'Consultando…' : list.length ? `${list.length} disponibles en el servicio` : 'No se pudo obtener la lista (¿servicio apagado o sin clave?)'}</span>
+    </>
+  );
+}
 
 export function Ajustes() {
   const { data, setData } = useApi('/settings');
   const { data: health } = useApi('/health');
+  const { data: info } = useApi('/providers/info');
   const [v, setV] = useState(null);
   const [busy, run] = useAction();
   if (!data) return <div className="page"><Spinner /></div>;
   const cur = v || data.values;
+  const set = (key, val) => setV({ ...cur, [key]: val });
   return (
     <div className="page">
       <div className="page-head">
         <div><h1 className="page-title">Ajustes</h1><p className="page-sub">Proveedores, modelos y parámetros de montaje.</p></div>
-        <button className="btn gold" disabled={!v || !!busy} onClick={() => run('s', async () => { const r = await api.put('/settings', v); setData(r); setV(null); }, 'Ajustes guardados')}><Save /> Guardar ajustes</button>
+        <div className="row">
+          <button className="btn" disabled={!!busy} title="Análisis: Gemini · Imágenes: ComfyUI · Voz: Piper · Música: compositor local"
+            onClick={() => run('free', async () => { setData(await api.post('/settings/free-preset')); setV(null); }, 'Configuración gratuita aplicada')}><Sparkles /> Usar configuración gratuita</button>
+          <button className="btn gold" disabled={!v || !!busy} onClick={() => run('s', async () => { const r = await api.put('/settings', v); setData(r); setV(null); }, 'Ajustes guardados')}><Save /> Guardar ajustes</button>
+        </div>
       </div>
       {FIELDS.map(([title, fields]) => (
         <div className="card section" key={title}>
           <h2 className="section-title">{title}</h2>
+          {title === 'Imágenes' && cur.image_provider === 'comfyui' && info && (
+            <div className="row" style={{ marginBottom: 12 }}>
+              <span className="hint">Valores recomendados según tu modelo:</span>
+              {Object.entries(info.comfy_presets).map(([id, pr]) => (
+                <button key={id} className={`btn sm ${cur.comfyui_preset === id ? 'gold' : ''}`} disabled={!!busy}
+                  onClick={() => run('p', async () => { setData(await api.post(`/settings/comfyui-preset/${id}`)); setV(null); })}>{pr.label}</button>
+              ))}
+            </div>
+          )}
           <div className="grid3">
-            {fields.map(([key, label, opts]) => (
-              <label className="field" key={key}>{label}
-                {opts ? <select className="select" value={cur[key]} onChange={e => setV({ ...cur, [key]: e.target.value })}>{opts.map(([a, b]) => <option key={a} value={a}>{b}</option>)}</select>
-                  : <input className="input" value={cur[key]} onChange={e => setV({ ...cur, [key]: e.target.value })} />}
+            {fields.filter(f => !f[3] || f[3](cur)).map(([key, label, opts]) => (
+              <label className="field" key={key} style={opts === 'textarea' ? { gridColumn: '1 / -1' } : undefined}>{label}
+                {Array.isArray(opts) ? <select className="select" value={cur[key]} onChange={e => set(key, e.target.value)}>{opts.map(([a, b]) => <option key={a} value={a}>{b}</option>)}</select>
+                  : opts === 'textarea' ? <textarea className="textarea" style={{ minHeight: 70, fontFamily: key === 'comfyui_workflow' ? 'ui-monospace, monospace' : undefined, fontSize: 12.5 }} value={cur[key]} onChange={e => set(key, e.target.value)} />
+                    : typeof opts === 'string' && opts.startsWith('models:') ? <ModelInput provider={opts.slice(7)} value={cur[key]} onChange={val => set(key, val)} />
+                      : <input className="input" value={cur[key]} onChange={e => set(key, e.target.value)} />}
               </label>
             ))}
           </div>

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Puzzle, UserCircle, Upload, Trash2, Sparkles, Music, Play, Square, Wand2, Info, Check } from 'lucide-react';
 import { api, useApi, fmtDuration, fmtDate, countWords } from '../api.js';
-import { Spinner, Modal, useAction, Empty } from '../components/ui.jsx';
+import { Spinner, Modal, useAction, Empty, Seg } from '../components/ui.jsx';
 import VoiceList from '../components/VoiceList.jsx';
 
 // ---------------- Extensión ----------------
@@ -108,11 +108,12 @@ export function Voces() {
       <div className="page-head"><div><h1 className="page-title">Voces</h1><p className="page-sub">Escucha las voces disponibles en tu cuenta del proveedor y elige la voz por defecto para tus narraciones.</p></div></div>
       <div className="card section">
         <div className="grid3">
-          <label className="field">Velocidad: {cfg.speed.toFixed(2)}×<input type="range" min={prov === 'openai' ? 0.5 : 0.7} max={prov === 'openai' ? 2 : 1.2} step="0.05" value={cfg.speed} onChange={e => setCfg({ ...cfg, speed: Number(e.target.value) })} /></label>
+          <label className="field">Velocidad: {cfg.speed.toFixed(2)}×<input type="range" min={prov === 'elevenlabs' ? 0.7 : 0.5} max={prov === 'elevenlabs' ? 1.2 : 2} step="0.05" value={cfg.speed} onChange={e => setCfg({ ...cfg, speed: Number(e.target.value) })} /></label>
           {prov === 'elevenlabs' ? <>
             <label className="field">Estabilidad: {cfg.stability.toFixed(2)}<input type="range" min="0" max="1" step="0.05" value={cfg.stability} onChange={e => setCfg({ ...cfg, stability: Number(e.target.value) })} /></label>
             <label className="field">Expresividad (estilo): {cfg.style.toFixed(2)}<input type="range" min="0" max="1" step="0.05" value={cfg.style} onChange={e => setCfg({ ...cfg, style: Number(e.target.value) })} /></label>
-          </> : <label className="field" style={{ gridColumn: 'span 2' }}>Tono (instrucciones para gpt-4o-mini-tts)<input className="input" value={cfg.tone} onChange={e => setCfg({ ...cfg, tone: e.target.value })} placeholder="Ej.: narrador cálido y pausado, con suspenso" /></label>}
+          </> : prov !== 'openai' ? <p className="hint" style={{ gridColumn: 'span 2', alignSelf: 'center' }}>{prov === 'piper' ? 'Piper: voces locales gratis. Pulsa «Descargar» en una voz (una sola vez) y luego «Usar». Si Piper no está instalado, instálalo en «Claves API → Servicios locales».' : 'Kokoro: voces locales gratis servidas por Kokoro-FastAPI en tu computador. Voces en español: ef_dora, em_alex, em_santa.'}</p>
+          : <label className="field" style={{ gridColumn: 'span 2' }}>Tono (instrucciones para gpt-4o-mini-tts)<input className="input" value={cfg.tone} onChange={e => setCfg({ ...cfg, tone: e.target.value })} placeholder="Ej.: narrador cálido y pausado, con suspenso" /></label>}
         </div>
         <label className="field" style={{ marginTop: 12 }}>Texto de prueba<input className="input" value={text} onChange={e => setText(e.target.value)} /></label>
       </div>
@@ -130,6 +131,8 @@ export function Voces() {
 export function MusicaIA() {
   const { data: moods } = useApi('/music/moods');
   const { data: tracks, reload } = useApi('/music');
+  const { data: st, setData: setSt } = useApi('/settings');
+  const provider = st?.values?.music_provider || 'local';
   const [mood, setMood] = useState('suspenso');
   const [prompt, setPrompt] = useState('');
   const [seconds, setSeconds] = useState(60);
@@ -146,7 +149,13 @@ export function MusicaIA() {
         <label className="btn"><Upload /> Subir pista<input type="file" accept="audio/*" hidden onChange={e => e.target.files[0] && run('up', async () => { await api.upload('/music/upload', { file: e.target.files[0], name: e.target.files[0].name.replace(/\.\w+$/, '') }); await reload(); }, 'Pista subida')} /></label>
       </div>
       <div className="card section">
-        <h2 className="section-title"><Music /> Ambiente</h2>
+        <h2 className="section-title"><Music /> Generador
+          <span className="right"><Seg value={provider} onChange={v => run('prov', async () => setSt(await api.put('/settings', { music_provider: v })))} options={[{ value: 'local', label: 'Compositor local (gratis)' }, { value: 'elevenlabs', label: 'ElevenLabs Music (de pago)' }]} /></span>
+        </h2>
+        <p className="hint" style={{ marginTop: -4 }}>{provider === 'local'
+          ? 'Compone música instrumental original en tu computador (pad, piano, bajo, pulso y percusión según el ambiente). Gratis, sin límites y sin derechos de terceros: puedes usarla en YouTube. Calidad sencilla, pensada como fondo bajo la voz.'
+          : 'ElevenLabs Music consume créditos de tu plan de pago.'}</p>
+        <h2 className="section-title" style={{ marginTop: 14 }}><Music /> Ambiente</h2>
         <div className="catalog" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
           {(moods || []).map(m => (
             <button key={m.id} className={`style-card ${mood === m.id ? 'selected' : ''}`} style={{ padding: '14px 12px' }} onClick={() => setMood(m.id)}>
@@ -154,7 +163,7 @@ export function MusicaIA() {
             </button>
           ))}
         </div>
-        <label className="field" style={{ marginTop: 14 }}>Descripción personalizada (opcional)<input className="input" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={moods?.find(m => m.id === mood)?.prompt} /></label>
+        {provider !== 'local' && <label className="field" style={{ marginTop: 14 }}>Descripción personalizada (opcional)<input className="input" value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={moods?.find(m => m.id === mood)?.prompt} /></label>}
         <div className="row" style={{ marginTop: 12 }}>
           <label className="field" style={{ flexDirection: 'row', alignItems: 'center' }}>Duración: {seconds} s <input type="range" min="10" max="600" step="5" value={seconds} onChange={e => setSeconds(Number(e.target.value))} /></label>
           <div className="spacer" />
@@ -164,11 +173,12 @@ export function MusicaIA() {
       </div>
       <div className="card section">
         <h2 className="section-title">Mis pistas</h2>
+        <p className="hint" style={{ marginTop: -4 }}>También puedes subir música con licencia libre para YouTube: <b>Biblioteca de audio de YouTube</b> (studio.youtube.com → Biblioteca de audio), <b>Pixabay Music</b> (pixabay.com/music) o <b>Incompetech</b> (CC BY: requiere citar al autor en la descripción). Revisa siempre la licencia de cada pista.</p>
         {!tracks?.length ? <Empty icon={Music}>Aún no hay pistas.</Empty> : (
           <div className="list">{tracks.map(t => (
             <div className="list-row" key={t.id}>
               <button className="icon-btn" onClick={() => play(t)}>{playing === t.id ? <Square /> : <Play />}</button>
-              <div style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{t.name}</div><div className="hint">{t.source === 'ai' ? 'Música IA' : 'Subida'} · {fmtDuration(t.duration)} · {fmtDate(t.created_at)}</div></div>
+              <div style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{t.name}</div><div className="hint">{t.source === 'local' ? 'Compositor local (gratis)' : t.source === 'ai' ? 'Música IA (ElevenLabs)' : 'Subida'} · {fmtDuration(t.duration)} · {fmtDate(t.created_at)}</div></div>
               <a className="btn sm" href={t.url} download>Descargar</a>
               <button className="icon-btn" onClick={() => confirm('¿Eliminar pista?') && run('d', async () => { await api.del(`/music/${t.id}`); await reload(); })}><Trash2 /></button>
             </div>))}

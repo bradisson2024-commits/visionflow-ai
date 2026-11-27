@@ -7,10 +7,14 @@ import { all, get, run, now, uid, mediaUrl, mediaSubdir, MEDIA_DIR } from '../db
 import { listStyles, updateStyle, getStyle, styleBlock } from '../styles.js';
 import { generateCharacterRef } from '../pipeline/produce.js';
 import { generateImage } from '../providers/image.js';
-import { listVoices, synthesize, composeMusic, MUSIC_MOODS } from '../providers/audio.js';
+import { listVoices, synthesize, generateMusicTrack, MUSIC_MOODS } from '../providers/audio.js';
 import { probeDuration } from '../media.js';
 import { getSettings, setSettings, keysStatus, setKey, getKey, API_KEYS, BASE_URLS, DEFAULTS } from '../settings.js';
 import { request } from '../providers/http.js';
+import { allStatus, listModels, PROVIDER_INFO } from '../providers/status.js';
+import { installPiper, downloadPiperVoice, piperStatus, VOICES_DIR } from '../providers/piper.js';
+import { COMFY_PRESETS } from '../providers/comfyui.js';
+import { FREE_PRESET } from '../settings.js';
 
 const upload = multer({ dest: path.join(MEDIA_DIR, 'uploads'), limits: { fileSize: 200 * 1024 * 1024 } });
 const extOf = (f, def) => (path.extname(f.originalname || '').toLowerCase() || def);
@@ -123,7 +127,7 @@ avatars.delete('/:id', (req, res) => {
 export const voices = Router();
 voices.get('/', async (req, res) => {
   const provider = req.query.provider || getSettings().tts_provider;
-  res.json(await listVoices(provider));
+  res.json(await listVoices(provider, req.query.language || getSettings().language));
 });
 /** Muestra de voz generada en vivo con la API (se cachea por voz y ajustes). */
 voices.post('/preview', async (req, res) => {
@@ -151,9 +155,9 @@ music.post('/generate', async (req, res) => {
   const seconds = Math.min(600, Math.max(10, Number(b.seconds) || 60));
   const id = uid('mus_');
   const out = path.join(mediaSubdir('music'), `${id}.mp3`);
-  await composeMusic({ prompt, seconds, outPath: out });
+  const r = await generateMusicTrack({ mood: mood.id, prompt, seconds, outPath: out });
   const d = await probeDuration(out);
-  run('INSERT INTO music_tracks(id, name, mood, prompt, source, path, duration, created_at) VALUES(?,?,?,?,?,?,?,?)', id, b.name?.trim() || mood.name, mood.id, prompt, 'ai', out, d, now());
+  run('INSERT INTO music_tracks(id, name, mood, prompt, source, path, duration, created_at) VALUES(?,?,?,?,?,?,?,?)', id, b.name?.trim() || mood.name, mood.id, prompt, r.provider === 'local' ? 'local' : 'ai', out, d, now());
   res.status(201).json(trackOut(get('SELECT * FROM music_tracks WHERE id = ?', id)));
 });
 music.post('/upload', upload.single('file'), async (req, res) => {
@@ -177,6 +181,36 @@ music.delete('/:id', (req, res) => {
 export const settings = Router();
 settings.get('/', (req, res) => res.json({ values: getSettings(), defaults: DEFAULTS }));
 settings.put('/', (req, res) => res.json({ values: setSettings(req.body || {}), defaults: DEFAULTS }));
+/** Un clic: usar solo proveedores gratuitos / locales. */
+settings.post('/free-preset', (req, res) => res.json({ values: setSettings(FREE_PRESET), defaults: DEFAULTS }));
+/** Aplica los valores recomendados de un tipo de modelo de ComfyUI. */
+settings.post('/comfyui-preset/:id', (req, res) => {
+  const pr = COMFY_PRESETS[req.params.id];
+  if (!pr) return res.status(404).json({ error: 'Preajuste desconocido' });
+  res.json({ values: setSettings({ comfyui_preset: req.params.id, comfyui_steps: pr.steps, comfyui_cfg: pr.cfg, comfyui_sampler: pr.sampler, comfyui_scheduler: pr.scheduler, comfyui_width: pr.width, comfyui_height: pr.height }), defaults: DEFAULTS });
+});
+
+// ---------------- Estado de proveedores y servicios locales ----------------
+export const providers = Router();
+providers.get('/status', async (req, res) => res.json(await allStatus()));
+providers.get('/info', (req, res) => res.json({ providers: PROVIDER_INFO, comfy_presets: COMFY_PRESETS }));
+providers.get('/models', async (req, res) => {
+  try { res.json(await listModels(req.query.provider)); }
+  catch (e) { res.json([]); }
+});
+providers.get('/piper', (req, res) => res.json(piperStatus()));
+providers.post('/piper/install', async (req, res) => { await installPiper(); res.json(piperStatus()); });
+providers.post('/piper/voices/:key', async (req, res) => { await downloadPiperVoice(req.params.key); res.json(piperStatus()); });
+/** Importar una voz de Piper descargada a mano (.onnx + .onnx.json). */
+providers.post('/piper/import', upload.fields([{ name: 'model', maxCount: 1 }, { name: 'config', maxCount: 1 }]), (req, res) => {
+  const m = req.files?.model?.[0], c = req.files?.config?.[0];
+  if (!m || !c || !m.originalname.endsWith('.onnx') || !c.originalname.endsWith('.json')) return res.status(400).json({ error: 'Sube el archivo .onnx y su .onnx.json' });
+  const key = path.basename(m.originalname, '.onnx').replace(/[^\w.-]/g, '_');
+  fs.mkdirSync(VOICES_DIR, { recursive: true });
+  fs.renameSync(m.path, path.join(VOICES_DIR, key + '.onnx'));
+  fs.renameSync(c.path, path.join(VOICES_DIR, key + '.onnx.json'));
+  res.json(piperStatus());
+});
 
 export const keys = Router();
 keys.get('/', (req, res) => res.json(keysStatus()));
@@ -193,6 +227,7 @@ keys.post('/:provider/test', async (req, res) => {
     gemini: () => request('Gemini', `${BASE_URLS.gemini}/v1beta/models?pageSize=1`, { headers: { 'x-goog-api-key': k } }, { retries: 0, timeoutMs: 20000 }),
     replicate: () => request('Replicate', `${BASE_URLS.replicate}/v1/account`, { headers: { Authorization: `Bearer ${k}` } }, { retries: 0, timeoutMs: 20000 }),
     elevenlabs: () => request('ElevenLabs', `${BASE_URLS.elevenlabs}/v1/voices`, { headers: { 'xi-api-key': k } }, { retries: 0, timeoutMs: 20000 }),
+    groq: () => request('Groq', `${BASE_URLS.groq}/v1/models`, { headers: { Authorization: `Bearer ${k}` } }, { retries: 0, timeoutMs: 20000 }),
   };
   try { await checks[p](); res.json({ ok: true, message: 'Conexión correcta.' }); }
   catch (e) { res.json({ ok: false, message: e.message }); }

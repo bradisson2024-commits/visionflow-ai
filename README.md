@@ -39,6 +39,32 @@ npm start             # http://127.0.0.1:5180
 Desarrollo: `npm run dev` (servidor) + `npm run dev:web` (Vite en :5173 con proxy).
 Variables opcionales: `PORT`, `HOST`, `VIMO_DATA_DIR` (por defecto `./data`).
 
+## Usar Vimo gratis (coste $0)
+
+En **Ajustes → «Usar configuración gratuita»** se eligen solo proveedores gratuitos. En **Claves API** el panel
+«Servicios que usará Vimo» comprueba de verdad cada servicio y dice qué falta. Antes de cada generación se
+hace la misma comprobación: si algo no responde, el proceso no empieza y se indica qué activar.
+
+| Parte | Proveedor gratuito | Límites | Cómo activarlo |
+|---|---|---|---|
+| Guion, títulos, escenas y prompts | **Ollama** (local) | Sin límites; velocidad según tu equipo | Instalar `ollama.com/download` → `ollama pull qwen2.5:7b` (o `qwen2.5:3b` en equipos modestos) |
+| | **Gemini** (nube) | Cuota gratuita con límites por minuto/día | Clave gratis en AI Studio |
+| | **Groq** (nube) | Cuota gratuita con límites por minuto/día | Clave gratis en console.groq.com |
+| Imágenes | **ComfyUI** (local) | Sin límites; **lento sin GPU NVIDIA** (minutos por imagen en CPU) | ComfyUI portable + un modelo `.safetensors` en `models/checkpoints` (p. ej. DreamShaper 8 para SD 1.5 o DreamShaper XL Lightning para SDXL) |
+| Voz | **Piper** (local) | Sin límites, funciona en CPU | Botón «Instalar Piper» y descargar una voz en «Voces» |
+| | **Kokoro** (local) | Sin límites | `docker run -d -p 8880:8880 ghcr.io/remsky/kokoro-fastapi-cpu:latest` |
+| Música | **Compositor local de Vimo** | Sin límites; música instrumental sencilla, original y sin derechos de terceros | Nada que instalar |
+| Montaje y render | **FFmpeg** | Sin límites | Ya requerido por Vimo |
+
+Para ComfyUI, la consistencia de personajes se consigue con la misma ficha visual en todas sus escenas y una
+semilla estable por proyecto. Con un flujo personalizado que use `{{ref_image}}` (por ejemplo IPAdapter) Vimo
+sube además la imagen de referencia del personaje.
+
+**Verificado en pruebas (`npm run test:free`):** instalación y síntesis real con Piper (voz en español),
+composición real de música local, render real con FFmpeg y todo el flujo de la interfaz. **No verificado con
+modelos reales** (no hay red hacia Hugging Face/Ollama ni GPU en el entorno de pruebas): Ollama, ComfyUI,
+Kokoro, Gemini y Groq se probaron contra su protocolo de API (ComfyUI con validación del grafo enviado).
+
 ## Claves API
 
 Se introducen en **Claves API** dentro de la app (se guardan en la base de datos local,

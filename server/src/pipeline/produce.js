@@ -5,12 +5,36 @@ import path from 'node:path';
 import { all, get, run, now, uid, tx, parseJSON, projectDir, mediaSubdir } from '../db.js';
 import { getSettings } from '../settings.js';
 import { getStyle, styleBlock } from '../styles.js';
-import { analyzeScript, buildScenePrompt, estimateSeconds } from './analyze.js';
+import { analyzeScript, buildScenePrompt, buildCompactPrompt, seedFrom, estimateSeconds } from './analyze.js';
 import { generateImage } from '../providers/image.js';
-import { synthesize, composeMusic, MUSIC_MOODS } from '../providers/audio.js';
+import { synthesize, generateMusicTrack, MUSIC_MOODS } from '../providers/audio.js';
 import { probeDuration } from '../media.js';
 import { renderVideo, makeThumbnail } from './render.js';
 import { registerHandler } from '../jobs.js';
+import { checkProvider, PROVIDER_INFO } from '../providers/status.js';
+
+/**
+ * Antes de empezar se comprueba que cada servicio necesario esté realmente disponible
+ * (clave configurada o servicio local respondiendo). Si falta algo, se detiene con un
+ * mensaje claro en lugar de fallar a mitad del proceso.
+ */
+async function preflight(p, ctx, { analysis, images, voice, music }) {
+  const s = getSettings();
+  const checks = [];
+  if (analysis) checks.push(['llm', s.llm_provider, 'Análisis del guion']);
+  if (images) checks.push(['image', s.image_provider, 'Imágenes']);
+  if (voice && p.narration.enabled) checks.push(['tts', p.narration.provider || s.tts_provider, 'Voz']);
+  if (music && p.music?.mode === 'generate') checks.push(['music', s.music_provider || 'local', 'Música']);
+  checks.push(['render', 'ffmpeg', 'Montaje']);
+  const problems = [];
+  for (const [kind, provider, label] of checks) {
+    const r = await checkProvider(kind, provider);
+    const name = PROVIDER_INFO[kind]?.[provider]?.label || provider;
+    if (r.ready) ctx.log(`✓ ${label}: ${name} — ${r.message}`);
+    else problems.push(`${label} (${name}): ${r.message}.${r.fix ? ' ' + r.fix : ''}`);
+  }
+  if (problems.length) throw new Error('Faltan servicios por conectar → ' + problems.join(' · '));
+}
 
 export function loadProject(id) {
   const p = get('SELECT * FROM projects WHERE id = ?', id);
@@ -62,7 +86,10 @@ async function stageAnalyze(p, ctx) {
   ctx.stage('analyzing', 1);
   const cast = projectCast(p.id, p.style_id);
   const saved = [...cast.values()].map(c => ({ key: c.char_key, name: c.name, description: c.description, role: c.role }));
-  const result = await analyzeScript({ title: p.title, script: p.script, style, savedCharacters: saved, language: p.narration.language || getSettings().language, signal: ctx.signal });
+  const result = await analyzeScript({
+    title: p.title, script: p.script, style, savedCharacters: saved, language: p.narration.language || getSettings().language, signal: ctx.signal,
+    onProgress: (d, t) => ctx.tick(d, t, d < t ? `Analizando bloque ${d + 1} de ${t}` : 'Análisis completo'),
+  });
   ctx.tick(1, 1);
   ctx.log(`Guion analizado: ${result.scenes.length} escenas, ${result.characters.length} personajes.`);
 
@@ -96,7 +123,8 @@ export async function generateCharacterRef(character, style, { signal } = {}) {
     `CHARACTER REFERENCE SHEET of a single character, ${character.name}: ${character.description}.`,
     'Full body, standing, front three-quarter view, neutral pose, calm neutral expression, plain light neutral background, the whole figure visible, clear silhouette, consistent proportions. Only this character. No text, no labels.',
   ].join('\n');
-  await generateImage({ prompt, aspect: '1:1', outPath: out, signal });
+  const compact = `${style.prompt}, character reference sheet of one single character, ${character.name}: ${character.description}, full body, standing, front three-quarter view, neutral pose, plain light neutral background, whole figure visible`;
+  await generateImage({ prompt, compact, seed: seedFrom(character.id + style.id), aspect: '1:1', outPath: out, signal });
   run(`INSERT INTO character_refs(character_id, style_id, image_path, created_at) VALUES(?,?,?,?)
        ON CONFLICT(character_id, style_id) DO UPDATE SET image_path = excluded.image_path, created_at = excluded.created_at`, character.id, style.id, out, now());
   run('UPDATE characters SET updated_at = ? WHERE id = ?', now(), character.id);
@@ -118,7 +146,7 @@ async function stageCharacters(p, ctx) {
   if (errors.length) throw new Error(`No se pudo crear la referencia de ${errors.map(e => e.item.name).join(', ')}: ${errors[0].error.message}`);
 }
 
-export async function generateSceneImage(p, scene, { signal } = {}) {
+export async function generateSceneImage(p, scene, { signal, onProgress } = {}) {
   const style = getStyle(p.style_id);
   const cast = projectCast(p.id, p.style_id);
   const chars = scene.characters.map(k => cast.get(k)).filter(Boolean);
@@ -126,7 +154,10 @@ export async function generateSceneImage(p, scene, { signal } = {}) {
   const prompt = buildScenePrompt({ styleText: styleBlock(style), scene, characters: chars, aspect });
   const refs = chars.map(c => c.ref).filter(r => r && fs.existsSync(r));
   const out = path.join(projectDir(p.id), 'images', `scene_${String(scene.idx).padStart(4, '0')}.png`);
-  await generateImage({ prompt, refs, aspect, outPath: out, signal });
+  const compact = buildCompactPrompt({ style, scene, characters: chars });
+  // Semilla estable por proyecto: mismas condiciones → mismo aspecto general en todas las escenas.
+  const seed = (seedFrom(p.id) + scene.idx * 7919) % 2147483647;
+  await generateImage({ prompt, compact, seed, refs, aspect, outPath: out, signal, onProgress });
   run('UPDATE scenes SET image_path = ?, image_error = NULL, updated_at = ? WHERE id = ?', out, now(), scene.id);
   return out;
 }
@@ -139,7 +170,7 @@ async function stageImages(p, ctx) {
   ctx.tick(done, scenes.length);
   const errors = await pool(todo, Number(getSettings().image_concurrency) || 3, async s => {
     try {
-      await generateSceneImage(p, s, ctx);
+      await generateSceneImage(p, s, { signal: ctx.signal, onProgress: msg => ctx.tick(done, scenes.length, `Escena ${s.idx + 1}: ${msg}`) });
     } catch (e) {
       run('UPDATE scenes SET image_error = ? WHERE id = ?', e.message, s.id);
       throw e;
@@ -204,15 +235,17 @@ async function stageMusic(p, ctx, total) {
   const mood = MUSIC_MOODS.find(x => x.id === m.mood) || MUSIC_MOODS.find(x => x.id === 'historia');
   const prompt = m.prompt?.trim() || mood.prompt;
   const seconds = Math.min(600, Math.ceil(total) + 3);
-  if (p.music_path && fs.existsSync(p.music_path) && m.generated_for === `${prompt}|${seconds}`) { ctx.tick(1, 1); return p.music_path; }
+  const provider = getSettings().music_provider || 'local';
+  const cacheKey = `${provider}|${mood.id}|${prompt}|${seconds}`;
+  if (p.music_path && fs.existsSync(p.music_path) && m.generated_for === cacheKey) { ctx.tick(1, 1); return p.music_path; }
   const id = uid('mus_');
   const out = path.join(mediaSubdir('music'), `${id}.mp3`);
-  await composeMusic({ prompt, seconds, outPath: out, signal: ctx.signal });
+  await generateMusicTrack({ mood: mood.id, prompt, seconds, outPath: out, signal: ctx.signal });
   const d = await probeDuration(out);
-  run('INSERT INTO music_tracks(id, name, mood, prompt, source, path, duration, created_at) VALUES(?,?,?,?,?,?,?,?)', id, `${mood.name} — ${p.title}`, mood.id, prompt, 'ai', out, d, now());
-  setProject(p.id, { music_path: out, music_json: JSON.stringify({ ...m, generated_for: `${prompt}|${seconds}`, generated_track_id: id }) });
+  run('INSERT INTO music_tracks(id, name, mood, prompt, source, path, duration, created_at) VALUES(?,?,?,?,?,?,?,?)', id, `${mood.name} — ${p.title}`, mood.id, prompt, provider === 'local' ? 'local' : 'ai', out, d, now());
+  setProject(p.id, { music_path: out, music_json: JSON.stringify({ ...m, generated_for: cacheKey, generated_track_id: id }) });
   ctx.tick(1, 1, 'Música creada');
-  ctx.log(`Música IA creada (${Math.round(d)} s).`);
+  ctx.log(`Música ${provider === 'local' ? 'compuesta localmente (gratis)' : 'IA creada'} (${Math.round(d)} s${d < total ? ', se repetirá en bucle' : ''}).`);
   return out;
 }
 
@@ -261,6 +294,8 @@ async function produce(projectId, payload, ctx) {
   setProject(p.id, { status: 'processing', error: null });
 
   const haveScenes = loadScenes(p.id).length > 0;
+  const reviewFirst = p.options.review_storyboard && !payload.approved;
+  await preflight(p, ctx, { analysis: payload.reanalyze || !haveScenes, images: !reviewFirst, voice: !reviewFirst, music: !reviewFirst });
   if (payload.reanalyze || !haveScenes) await stageAnalyze(p, ctx);
   p = loadProject(projectId);
 
@@ -286,6 +321,7 @@ async function storyboard(projectId, payload, ctx) {
   if (!p.script.trim()) throw new Error('El guion está vacío.');
   getStyle(p.style_id);
   setProject(p.id, { status: 'processing', error: null });
+  await preflight(p, ctx, { analysis: true });
   await stageAnalyze(p, ctx);
   setProject(p.id, { status: 'storyboard' });
   ctx.stage('storyboard', 0);
