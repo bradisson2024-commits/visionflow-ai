@@ -1,0 +1,22 @@
+{
+  "name": "vimo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vimo — Videos con IA en un clic. Creación automática de videos narrados con IA.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "install:all": "npm install && npm --prefix web install",
+    "build": "npm --prefix web run build",
+    "start": "node --disable-warning=ExperimentalWarning server/src/index.js",
+    "dev": "node --watch --disable-warning=ExperimentalWarning server/src/index.js",
+    "dev:web": "npm --prefix web run dev",
+    "test:e2e": "node --disable-warning=ExperimentalWarning test/e2e.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
+    "express": "^5.1.0",
+    "multer": "^2.0.2"
+  }
+}
