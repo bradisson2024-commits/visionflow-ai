@@ -2,7 +2,8 @@
  * Lectura centralizada de variables de entorno del servidor.
  * Nunca importar desde componentes cliente.
  */
-const read = (k: string, fallback = "") => (process.env[k] ?? fallback).trim();
+// Una variable vacía cuenta como no definida (Docker pasa "" cuando falta en el archivo de ajustes).
+const read = (k: string, fallback = "") => (process.env[k]?.trim() || fallback).trim();
 
 export const env = {
   DATABASE_URL: read("DATABASE_URL", "postgres://clipforge:clipforge@localhost:5432/clipforge"),

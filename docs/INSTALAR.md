@@ -61,6 +61,18 @@ Copia `clipforge.env.example` como **`clipforge.env`** y edítalo con el Bloc de
 
 Después vuelve a ejecutar `iniciar`.
 
+## Equipos con 4 GB de RAM
+
+La IA local por defecto (qwen2.5:7b) necesita unos 8 GB de RAM. Con 4 GB todo lo demás funciona
+(importar, transcribir, recortar, subtitular, descargar), pero para elegir los momentos virales hay dos
+opciones. Se configuran en `clipforge.env` (copia de `clipforge.env.example`) y luego se vuelve a abrir `iniciar`:
+
+1. **IA en la nube compatible con OpenAI** (Groq, Google Gemini…). Algunos proveedores tienen plan gratuito
+   con límites. Crea una clave en su web y rellena `CF_LLM_PROVIDER=openai_compatible`, `CF_LLM_BASE_URL`,
+   `CF_LLM_MODEL` y `CF_LLM_API_KEY` (hay ejemplos en el archivo). Recomendado: elige mucho mejor los momentos.
+2. **Modelo local pequeño** (`CF_LLM_MODEL=qwen2.5:1.5b`, `CF_OLLAMA_NUM_CTX=4096`, `CF_LLM_WINDOW_WORDS=1200`).
+   Gratis y sin internet, pero acierta menos.
+
 ## Si YouTube dice «confirma que no eres un bot»
 
 Exporta las cookies de tu navegador con tu sesión de YouTube abierta (extensión «Get cookies.txt LOCALLY»),
