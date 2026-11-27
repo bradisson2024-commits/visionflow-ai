@@ -64,7 +64,8 @@ export async function renderSceneAudio({ audio, out, duration, signal }) {
 }
 
 function writeConcatList(file, items) {
-  fs.writeFileSync(file, items.map(p => `file '${p.replace(/'/g, "'\\''")}'`).join('\n') + '\n');
+  // Barras normales: FFmpeg las acepta también en Windows y evitan problemas de escape.
+  fs.writeFileSync(file, items.map(p => `file '${p.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`).join('\n') + '\n');
 }
 
 /**

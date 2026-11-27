@@ -10,7 +10,25 @@ voz IA → música IA → montaje → **MP4 real** renderizado con FFmpeg.
 - FFmpeg y FFprobe en el `PATH` (o variables `FFMPEG_PATH` / `FFPROBE_PATH`)
 - Claves API de los servicios de IA (ver abajo)
 
-## Instalación y arranque
+## Instalación en Windows (lo más fácil)
+
+1. Abre **PowerShell** e instala los requisitos (una sola vez):
+   ```powershell
+   winget install OpenJS.NodeJS.LTS
+   winget install Gyan.FFmpeg
+   winget install Git.Git
+   ```
+   Cierra PowerShell y ábrelo de nuevo para que reconozca los programas.
+2. Descarga el proyecto:
+   ```powershell
+   cd $HOME\Documents
+   git clone -b ccr-5398ef42-txl1e4 https://github.com/bradisson2024-commits/visionflow-ai.git
+   ```
+3. Abre la carpeta `Documents\visionflow-ai` y haz doble clic en **`iniciar-vimo.bat`**.
+   La primera vez instala y compila (unos minutos); luego abre http://127.0.0.1:5180.
+   **No cierres esa ventana negra** mientras uses Vimo: es el servidor.
+
+## Instalación y arranque (cualquier sistema)
 
 ```bash
 npm run install:all   # dependencias del servidor y de la interfaz
