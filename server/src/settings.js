@@ -64,7 +64,8 @@ export const FREE_PRESET = { free_only: 'on', llm_provider: 'gemini', image_prov
 /** Proveedores que piden saldo / pago por uso. En modo gratuito no se usan ni se muestran. */
 export const PAID = {
   llm_provider: ['anthropic', 'openai'],
-  image_provider: ['openai', 'gemini', 'replicate'],
+  // Nano Banana (Gemini Image) se permite como excepción elegida por el usuario: se muestra con su coste.
+  image_provider: ['openai', 'replicate'],
   tts_provider: ['openai'],
   music_provider: ['elevenlabs'],
 };

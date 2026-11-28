@@ -17,7 +17,7 @@ export const PROVIDER_INFO = {
   },
   image: {
     openai: { label: 'OpenAI (gpt-image-1)', cost: 'De pago' },
-    gemini: { label: 'Google Gemini Image', cost: 'De pago (normalmente requiere facturación activa)' },
+    gemini: { label: 'Nano Banana (Gemini Image)', cost: 'De pago: ≈0,04 US$ por imagen (requiere facturación en Google)' },
     replicate: { label: 'Replicate (FLUX)', cost: 'De pago' },
     comfyui: { label: 'ComfyUI (local)', cost: 'Gratis y sin límites (usa tu computador)' },
   },

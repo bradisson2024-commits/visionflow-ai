@@ -199,7 +199,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 // ---------------- Ajustes ----------------
 const FREE = ' — GRATIS';
-export const PAID = { llm_provider: ['anthropic', 'openai'], image_provider: ['openai', 'gemini', 'replicate'], tts_provider: ['openai'], music_provider: ['elevenlabs'] };
+export const PAID = { llm_provider: ['anthropic', 'openai'], image_provider: ['openai', 'replicate'], tts_provider: ['openai'], music_provider: ['elevenlabs'] };
 // [clave, etiqueta, opciones | 'models:proveedor' | 'textarea' | undefined, mostrar-si(valores)]
 const FIELDS = [
   ['Modelos de lenguaje (guion, escenas y prompts)', [
@@ -212,7 +212,7 @@ const FIELDS = [
     ['openai_llm_model', 'Modelo de OpenAI', null, v => v.llm_provider === 'openai'],
   ]],
   ['Imágenes', [
-    ['image_provider', 'Proveedor', [['comfyui', 'ComfyUI (local)' + FREE], ['openai', 'OpenAI (gpt-image-1) — de pago'], ['gemini', 'Google Gemini Image — de pago'], ['replicate', 'Replicate (FLUX) — de pago']]],
+    ['image_provider', 'Proveedor', [['comfyui', 'ComfyUI (local)' + FREE], ['openai', 'OpenAI (gpt-image-1) — de pago'], ['gemini', 'Nano Banana (Gemini) — ≈0,04 US$/imagen, requiere facturación'], ['replicate', 'Replicate (FLUX) — de pago']]],
     ['comfyui_url', 'Dirección de ComfyUI', null, v => v.image_provider === 'comfyui'],
     ['comfyui_checkpoint', 'Modelo (checkpoint) — vacío = el primero', 'models:comfyui', v => v.image_provider === 'comfyui'],
     ['comfyui_steps', 'Pasos', null, v => v.image_provider === 'comfyui'],
@@ -225,7 +225,7 @@ const FIELDS = [
     ['comfyui_workflow', 'Flujo personalizado (opcional, JSON «Save (API Format)» con {{prompt}}, {{negative}}, {{seed}}, {{width}}, {{height}}, {{ref_image}})', 'textarea', v => v.image_provider === 'comfyui'],
     ['openai_image_model', 'Modelo de OpenAI', null, v => v.image_provider === 'openai'],
     ['openai_image_quality', 'Calidad OpenAI', [['low', 'Baja'], ['medium', 'Media'], ['high', 'Alta']], v => v.image_provider === 'openai'],
-    ['gemini_image_model', 'Modelo de Gemini', null, v => v.image_provider === 'gemini'],
+    ['gemini_image_model', 'Modelo Nano Banana', [['gemini-2.5-flash-image', 'Nano Banana (gemini-2.5-flash-image)'], ['gemini-3-pro-image-preview', 'Nano Banana Pro (gemini-3-pro-image-preview, más caro)']], v => v.image_provider === 'gemini'],
     ['replicate_model', 'Modelo Replicate (sin referencia)', null, v => v.image_provider === 'replicate'],
     ['replicate_ref_model', 'Modelo Replicate (con referencia)', null, v => v.image_provider === 'replicate'],
     ['image_concurrency', 'Imágenes en paralelo', [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['6', '6']]],
@@ -290,7 +290,7 @@ export function Ajustes() {
               onClick={() => run('fo', async () => { setData(await api.put('/settings', { free_only: cur.free_only !== 'off' ? 'off' : 'on' })); setV(null); })} /></span>
         </h2>
         <p className="hint" style={{ margin: 0 }}>{cur.free_only !== 'off'
-          ? 'Vimo solo usa servicios gratuitos o locales. Los que piden saldo (Claude, OpenAI, Replicate, Gemini Image y ElevenLabs Music) están ocultos y nunca se usan.'
+          ? 'Vimo solo usa servicios gratuitos o locales. Los que piden saldo (Claude, OpenAI, Replicate y ElevenLabs Music) están ocultos y nunca se usan. Excepción: Nano Banana (Gemini Image) se puede elegir en Imágenes, indicando su coste por imagen.'
           : 'Los servicios de pago están visibles y pueden consumir saldo de tus cuentas.'}</p>
       </div>
       {FIELDS.map(([title, fields]) => (

@@ -40,11 +40,19 @@ async function geminiImage({ prompt, refs, aspect, signal }) {
   const s = getSettings();
   const parts = [{ text: prompt }];
   for (const p of refs.slice(0, 3)) parts.push({ inline_data: { mime_type: mime(p), data: fs.readFileSync(p).toString('base64') } });
-  const r = await json('Gemini', `${BASE_URLS.gemini}/v1beta/models/${s.gemini_image_model}:generateContent`, {
+  let r;
+  try {
+  r = await json('Gemini', `${BASE_URLS.gemini}/v1beta/models/${s.gemini_image_model}:generateContent`, {
     method: 'POST',
     headers: { 'x-goog-api-key': requireKey('gemini'), 'Content-Type': 'application/json' },
     body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: aspect } } }),
   }, { signal });
+  } catch (e) {
+    if (e.status === 429 || /limit: 0|billing|FAILED_PRECONDITION/i.test(e.message)) {
+      throw new ProviderError('Nano Banana (Gemini)', e.status, 'tu proyecto de Google no tiene facturación activa o se agotó la cuota. La generación de imágenes con Nano Banana por API requiere facturación: en aistudio.google.com/apikey pulsa «Configurar facturación» en tu proyecto. Detalle: ' + e.message.slice(0, 200));
+    }
+    throw e;
+  }
   for (const part of r.candidates?.[0]?.content?.parts || []) {
     const inline = part.inlineData || part.inline_data;
     if (inline?.data) return Buffer.from(inline.data, 'base64');
