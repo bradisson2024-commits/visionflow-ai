@@ -23,6 +23,21 @@ const safeKey = (key: string) => {
   return p;
 };
 
+/**
+ * Mueve un archivo. Si origen y destino están en sistemas de archivos distintos
+ * (EXDEV, p. ej. /tmp y un volumen de Docker), copia y borra el original.
+ */
+export async function moveFile(from: string, to: string) {
+  await mkdir(path.dirname(to), { recursive: true });
+  try {
+    await rename(from, to);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EXDEV") throw err;
+    await copyFile(from, to);
+    await rm(from, { force: true });
+  }
+}
+
 /** Directorio de trabajo temporal (subidas parciales, renders intermedios). */
 export async function tempDir(...parts: string[]) {
   const dir = path.join(root(), "tmp", ...parts);
@@ -56,14 +71,7 @@ export const storage = {
       await rm(localPath, { force: true });
       return;
     }
-    const dest = safeKey(key);
-    await mkdir(path.dirname(dest), { recursive: true });
-    try {
-      await rename(localPath, dest);
-    } catch {
-      await copyFile(localPath, dest);
-      await rm(localPath, { force: true });
-    }
+    await moveFile(localPath, safeKey(key));
   },
 
   async size(key: string): Promise<number> {

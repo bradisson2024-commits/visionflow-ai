@@ -1,9 +1,9 @@
-import { mkdtemp, rename, rm } from "node:fs/promises";
-import os from "node:os";
+import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/server/db";
 import { env } from "@/server/env";
+import { moveFile, tempDir } from "@/server/storage";
 import { downloadToPart } from "@/server/services/url-import";
 import { finalizeVideo, markVideoFailed, partPath } from "@/server/services/videos";
 import { platformDownload, platformInfo } from "@/server/media/ytdlp";
@@ -32,7 +32,8 @@ export async function handleImportUrl(ctx: JobContext) {
         throw new Error(`El video dura ${Math.round(info.durationSec / 60)} min; el máximo configurado es ${env.MAX_IMPORT_MINUTES} min (MAX_IMPORT_MINUTES).`);
       title = cleanTitle(info.title);
       await db.update(schema.videos).set({ originalFilename: `${title}.mp4`, mimeType: "video/mp4" }).where(eq(schema.videos.id, videoId));
-      const dir = await mkdtemp(path.join(os.tmpdir(), "cf-ytdlp-"));
+      // Se descarga dentro del almacenamiento para que mover el archivo sea instantáneo.
+      const dir = await mkdtemp(path.join(await tempDir("ytdlp"), "dl-"));
       try {
         let last = 0;
         const file = await platformDownload(params.url, dir, {
@@ -44,7 +45,7 @@ export async function handleImportUrl(ctx: JobContext) {
             progress(got, total).catch(() => {});
           },
         });
-        await rename(file, await partPath(videoId));
+        await moveFile(file, await partPath(videoId));
       } finally {
         await rm(dir, { recursive: true, force: true });
       }
