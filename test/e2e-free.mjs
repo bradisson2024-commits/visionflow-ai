@@ -71,8 +71,21 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, acceptDownloads: true });
   page.on('pageerror', e => console.log('  [browser error]', e.message));
 
+  // ---- Modo gratuito activado de fábrica: no se usan ni se muestran servicios que piden saldo ----
+  const def = (await (await fetch(base + '/api/settings')).json()).values;
+  check('De fábrica: modo gratuito y proveedores gratis (Gemini, ComfyUI, Piper, música local)', def.free_only === 'on' && def.llm_provider === 'gemini' && def.image_provider === 'comfyui' && def.tts_provider === 'piper' && def.music_provider === 'local');
+  // Aunque se guarde un proveedor de pago, en modo gratuito nunca se usa.
+  await fetch(base + '/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ llm_provider: 'anthropic', image_provider: 'openai' }) });
+  const forced = (await (await fetch(base + '/api/settings')).json()).values;
+  check('En modo gratuito un proveedor de pago guardado se sustituye por el gratis', forced.llm_provider === 'gemini' && forced.image_provider === 'comfyui');
+  await page.goto(base + '/#/claves');
+  await page.locator('.card.section b', { hasText: 'Google Gemini' }).waitFor();
+  check('Claves de pago (Anthropic, OpenAI, Replicate) ocultas en modo gratuito', await page.locator('.card.section b', { hasText: /^(Anthropic \(Claude\)|OpenAI|Replicate)$/ }).count() === 0);
+
   // ---- Ajustes: un clic para la configuración gratuita; luego Ollama para el guion ----
   await page.goto(base + '/#/ajustes');
+  const llmOpts = await page.locator('label.field', { hasText: 'Proveedor' }).first().locator('option').allTextContents();
+  check('El selector de proveedor no ofrece opciones de pago', !llmOpts.some(o => /de pago/.test(o)), llmOpts.join(' | '));
   await page.getByRole('button', { name: 'Usar configuración gratuita' }).click();
   await page.getByText('Configuración gratuita aplicada').waitFor();
   const sel = label => page.locator('label.field', { hasText: label }).locator('select');

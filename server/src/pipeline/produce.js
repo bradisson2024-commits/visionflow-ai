@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { all, get, run, now, uid, tx, parseJSON, projectDir, mediaSubdir } from '../db.js';
-import { getSettings } from '../settings.js';
+import { getSettings, isPaidVoice } from '../settings.js';
 import { getStyle, styleBlock } from '../styles.js';
 import { analyzeScript, buildScenePrompt, buildCompactPrompt, seedFrom, estimateSeconds } from './analyze.js';
 import { generateImage } from '../providers/image.js';
@@ -23,7 +23,11 @@ async function preflight(p, ctx, { analysis, images, voice, music }) {
   const checks = [];
   if (analysis) checks.push(['llm', s.llm_provider, 'Análisis del guion']);
   if (images) checks.push(['image', s.image_provider, 'Imágenes']);
-  if (voice && p.narration.enabled) checks.push(['tts', p.narration.provider || s.tts_provider, 'Voz']);
+  if (voice && p.narration.enabled) {
+    const vp = p.narration.provider || s.tts_provider;
+    if (s.free_only !== 'off' && isPaidVoice(vp)) throw new Error('La voz de este proyecto es de OpenAI (de pago) y el modo gratuito está activado. Pulsa «Editar», elige una voz gratis en Narración (Piper) y vuelve a crear el video.');
+    checks.push(['tts', vp, 'Voz']);
+  }
   if (music && p.music?.mode === 'generate') checks.push(['music', s.music_provider || 'local', 'Música']);
   checks.push(['render', 'ffmpeg', 'Montaje']);
   const problems = [];

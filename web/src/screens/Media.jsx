@@ -150,7 +150,7 @@ export function MusicaIA() {
       </div>
       <div className="card section">
         <h2 className="section-title"><Music /> Generador
-          <span className="right"><Seg value={provider} onChange={v => run('prov', async () => setSt(await api.put('/settings', { music_provider: v })))} options={[{ value: 'local', label: 'Compositor local (gratis)' }, { value: 'elevenlabs', label: 'ElevenLabs Music (de pago)' }]} /></span>
+          <span className="right"><Seg value={provider} onChange={v => run('prov', async () => setSt(await api.put('/settings', { music_provider: v })))} options={[{ value: 'local', label: 'Compositor local (gratis)' }, ...(st?.values?.free_only === 'off' ? [{ value: 'elevenlabs', label: 'ElevenLabs Music (de pago)' }] : [])]} /></span>
         </h2>
         <p className="hint" style={{ marginTop: -4 }}>{provider === 'local'
           ? 'Compone música instrumental original en tu computador (pad, piano, bajo, pulso y percusión según el ambiente). Gratis, sin límites y sin derechos de terceros: puedes usarla en YouTube. Calidad sencilla, pensada como fondo bajo la voz.'

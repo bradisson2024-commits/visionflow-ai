@@ -12,18 +12,19 @@ export const API_KEYS = {
 };
 
 export const DEFAULTS = {
-  llm_provider: 'anthropic',
+  free_only: 'on', // modo gratuito: nunca usar servicios que piden saldo
+  llm_provider: 'gemini',
   anthropic_model: 'claude-opus-5-5',
   openai_llm_model: 'gpt-4.1',
   gemini_llm_model: 'gemini-2.5-flash',
-  image_provider: 'openai',
+  image_provider: 'comfyui',
   openai_image_model: 'gpt-image-1',
   openai_image_quality: 'medium',
   gemini_image_model: 'gemini-2.5-flash-image',
   replicate_model: 'black-forest-labs/flux-1.1-pro',
   replicate_ref_model: 'black-forest-labs/flux-kontext-pro',
   image_concurrency: '3',
-  tts_provider: 'elevenlabs',
+  tts_provider: 'piper',
   elevenlabs_tts_model: 'eleven_multilingual_v2',
   openai_tts_model: 'gpt-4o-mini-tts',
   language: 'es',
@@ -58,7 +59,17 @@ export const DEFAULTS = {
 };
 
 /** Configuración de coste 0: todo gratis o local. */
-export const FREE_PRESET = { llm_provider: 'gemini', image_provider: 'comfyui', tts_provider: 'piper', music_provider: 'local' };
+export const FREE_PRESET = { free_only: 'on', llm_provider: 'gemini', image_provider: 'comfyui', tts_provider: 'piper', music_provider: 'local' };
+
+/** Proveedores que piden saldo / pago por uso. En modo gratuito no se usan ni se muestran. */
+export const PAID = {
+  llm_provider: ['anthropic', 'openai'],
+  image_provider: ['openai', 'gemini', 'replicate'],
+  tts_provider: ['openai'],
+  music_provider: ['elevenlabs'],
+};
+export const PAID_KEYS = ['anthropic', 'openai', 'replicate'];
+export const isPaidVoice = provider => PAID.tts_provider.includes(provider);
 
 // Permite apuntar los proveedores a otra URL (proxys corporativos o pruebas automáticas).
 export const BASE_URLS = {
@@ -77,7 +88,10 @@ function rawSettings() {
 }
 
 export function getSettings() {
-  return { ...DEFAULTS, ...Object.fromEntries(Object.entries(rawSettings()).filter(([k]) => !k.startsWith('key_'))) };
+  const v = { ...DEFAULTS, ...Object.fromEntries(Object.entries(rawSettings()).filter(([k]) => !k.startsWith('key_'))) };
+  // En modo gratuito, cualquier proveedor de pago guardado se sustituye por el gratuito.
+  if (v.free_only !== 'off') for (const [k, list] of Object.entries(PAID)) if (list.includes(v[k])) v[k] = FREE_PRESET[k];
+  return v;
 }
 
 export function setSettings(patch) {
@@ -110,6 +124,7 @@ export function keysStatus() {
     return {
       id, ...meta,
       configured: !!v,
+      paid: PAID_KEYS.includes(id),
       source: stored ? 'app' : env ? 'env' : null,
       masked: v ? v.slice(0, 4) + '…' + v.slice(-4) : null,
     };

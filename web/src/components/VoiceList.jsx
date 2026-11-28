@@ -11,6 +11,8 @@ export default function VoiceList({ provider, onProvider, selected, onSelect, se
   const [playing, setPlaying] = useState(null);
   const [busy, run] = useAction();
   const audio = useRef(null);
+  const { data: st } = useApi('/settings');
+  const freeOnly = st?.values?.free_only !== 'off';
 
   const list = useMemo(() => (voices || []).filter(v =>
     (gender === 'todas' || v.gender === gender) &&
@@ -35,7 +37,7 @@ export default function VoiceList({ provider, onProvider, selected, onSelect, se
   return (
     <div className="stack">
       <div className="row">
-        <Seg value={provider} onChange={p => { stop(); onProvider(p); }} options={[{ value: 'piper', label: 'Piper (gratis)' }, { value: 'kokoro', label: 'Kokoro (gratis)' }, { value: 'elevenlabs', label: 'ElevenLabs' }, { value: 'openai', label: 'OpenAI TTS' }]} />
+        <Seg value={provider} onChange={p => { stop(); onProvider(p); }} options={[{ value: 'piper', label: 'Piper (gratis)' }, { value: 'kokoro', label: 'Kokoro (gratis)' }, { value: 'elevenlabs', label: 'ElevenLabs' }, ...(freeOnly ? [] : [{ value: 'openai', label: 'OpenAI TTS' }])]} />
         <Seg value={gender} onChange={setGender} options={[{ value: 'todas', label: 'Todas' }, { value: 'femenina', label: 'Femeninas' }, { value: 'masculina', label: 'Masculinas' }]} />
         <input className="input" style={{ maxWidth: 220 }} placeholder="Buscar por nombre, idioma…" value={q} onChange={e => setQ(e.target.value)} />
       </div>

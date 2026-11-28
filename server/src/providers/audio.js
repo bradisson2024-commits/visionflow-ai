@@ -3,7 +3,7 @@
 // Música: ElevenLabs Music.
 import fs from 'node:fs';
 import path from 'node:path';
-import { getSettings, requireKey, BASE_URLS } from '../settings.js';
+import { getSettings, requireKey, BASE_URLS, isPaidVoice } from '../settings.js';
 import { json, buffer } from './http.js';
 import { listPiperVoices, piperSynthesize } from './piper.js';
 import { composeLocal } from './composer.js';
@@ -62,6 +62,7 @@ export async function listVoices(provider, language = 'es') {
 export async function synthesize({ text, voice, outPath, context = {}, signal }) {
   const s = getSettings();
   const provider = voice.provider || s.tts_provider;
+  if (s.free_only !== 'off' && isPaidVoice(provider)) throw new Error('La voz elegida (OpenAI) es de pago y el modo gratuito está activado. Elige una voz gratis (Piper, Kokoro o ElevenLabs plan gratis) en Crear Video → Narración.');
   let buf;
   if (provider === 'piper') {
     return piperSynthesize({ text, voiceId: voice.voice_id, speed: voice.speed, outPath, signal });

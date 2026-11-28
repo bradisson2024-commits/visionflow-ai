@@ -63,6 +63,9 @@ try {
   page.on('pageerror', e => console.log('  [browser error]', e.message));
   const base = `http://127.0.0.1:${APP}`;
 
+  // Esta prueba cubre los proveedores de pago (la gratuita está en e2e-free.mjs): se desactiva el modo gratuito.
+  await fetch(`http://127.0.0.1:${APP}/api/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ free_only: 'off', llm_provider: 'anthropic', image_provider: 'openai', tts_provider: 'elevenlabs', music_provider: 'elevenlabs' }) });
+
   // ---- Claves API (se introducen por la interfaz) ----
   await page.goto(base + '/#/claves');
   for (const label of ['Anthropic (Claude)', 'OpenAI', 'ElevenLabs']) {
@@ -74,9 +77,6 @@ try {
     await card.getByText('Conexión correcta.').waitFor();
   }
   check('Claves API guardadas y probadas desde la interfaz', true);
-
-  // Esta prueba cubre los proveedores de pago (la gratuita está en e2e-free.mjs): música con ElevenLabs.
-  await fetch(`http://127.0.0.1:${APP}/api/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ music_provider: 'elevenlabs' }) });
 
   // ---- 1–4. Crear Video ----
   await page.goto(base + '/#/crear');

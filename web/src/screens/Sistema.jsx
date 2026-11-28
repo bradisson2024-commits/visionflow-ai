@@ -47,6 +47,8 @@ export function Demo({ navigate }) {
 // ---------------- Claves API ----------------
 export function ClavesAPI() {
   const { data: keys, setData } = useApi('/keys');
+  const { data: st } = useApi('/settings');
+  const freeOnly = st?.values?.free_only !== 'off';
   const [vals, setVals] = useState({});
   const [tests, setTests] = useState({});
   const [busy, run] = useAction();
@@ -58,7 +60,8 @@ export function ClavesAPI() {
       <h2 className="section-title" style={{ margin: '22px 0 10px' }}><KeyRound /> Claves de servicios en la nube</h2>
       {!keys ? <Spinner /> : (
         <div className="stack">
-          {keys.map(k => (
+          {freeOnly && <p className="hint" style={{ margin: 0 }}>Modo gratuito activado: las claves de servicios que piden saldo (Anthropic, OpenAI, Replicate) están ocultas. Puedes desactivarlo en Ajustes.</p>}
+          {keys.filter(k => !(freeOnly && k.paid)).map(k => (
             <div className="card section" key={k.id} style={{ marginBottom: 0 }}>
               <div className="row">
                 <b style={{ fontSize: 15 }}>{k.label}</b>{k.free && <span className="chip gold">Gratis con límites</span>}
@@ -196,6 +199,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 // ---------------- Ajustes ----------------
 const FREE = ' — GRATIS';
+export const PAID = { llm_provider: ['anthropic', 'openai'], image_provider: ['openai', 'gemini', 'replicate'], tts_provider: ['openai'], music_provider: ['elevenlabs'] };
 // [clave, etiqueta, opciones | 'models:proveedor' | 'textarea' | undefined, mostrar-si(valores)]
 const FIELDS = [
   ['Modelos de lenguaje (guion, escenas y prompts)', [
@@ -279,6 +283,16 @@ export function Ajustes() {
           <button className="btn gold" disabled={!v || !!busy} onClick={() => run('s', async () => { const r = await api.put('/settings', v); setData(r); setV(null); }, 'Ajustes guardados')}><Save /> Guardar ajustes</button>
         </div>
       </div>
+      <div className="card section" style={{ borderColor: cur.free_only !== 'off' ? '#bfe3cc' : undefined }}>
+        <h2 className="section-title"><Sparkles /> Modo gratuito
+          <span className="right">{cur.free_only !== 'off' ? 'Activado' : 'Desactivado'}
+            <button type="button" className={`toggle ${cur.free_only !== 'off' ? 'on' : ''}`} aria-label="Modo gratuito"
+              onClick={() => run('fo', async () => { setData(await api.put('/settings', { free_only: cur.free_only !== 'off' ? 'off' : 'on' })); setV(null); })} /></span>
+        </h2>
+        <p className="hint" style={{ margin: 0 }}>{cur.free_only !== 'off'
+          ? 'Vimo solo usa servicios gratuitos o locales. Los que piden saldo (Claude, OpenAI, Replicate, Gemini Image y ElevenLabs Music) están ocultos y nunca se usan.'
+          : 'Los servicios de pago están visibles y pueden consumir saldo de tus cuentas.'}</p>
+      </div>
       {FIELDS.map(([title, fields]) => (
         <div className="card section" key={title}>
           <h2 className="section-title">{title}</h2>
@@ -294,7 +308,7 @@ export function Ajustes() {
           <div className="grid3">
             {fields.filter(f => !f[3] || f[3](cur)).map(([key, label, opts]) => (
               <label className="field" key={key} style={opts === 'textarea' ? { gridColumn: '1 / -1' } : undefined}>{label}
-                {Array.isArray(opts) ? <select className="select" value={cur[key]} onChange={e => set(key, e.target.value)}>{opts.map(([a, b]) => <option key={a} value={a}>{b}</option>)}</select>
+                {Array.isArray(opts) ? <select className="select" value={cur[key]} onChange={e => set(key, e.target.value)}>{opts.filter(([a]) => cur.free_only === 'off' || !PAID[key]?.includes(a)).map(([a, b]) => <option key={a} value={a}>{b}</option>)}</select>
                   : opts === 'textarea' ? <textarea className="textarea" style={{ minHeight: 70, fontFamily: key === 'comfyui_workflow' ? 'ui-monospace, monospace' : undefined, fontSize: 12.5 }} value={cur[key]} onChange={e => set(key, e.target.value)} />
                     : typeof opts === 'string' && opts.startsWith('models:') ? <ModelInput provider={opts.slice(7)} value={cur[key]} onChange={val => set(key, val)} />
                       : <input className="input" value={cur[key]} onChange={e => set(key, e.target.value)} />}

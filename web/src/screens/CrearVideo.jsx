@@ -15,9 +15,9 @@ const blank = settings => ({
   style_id: '2d-stickman',
   narration: {
     enabled: true,
-    provider: settings?.default_voice_provider || settings?.tts_provider || 'elevenlabs',
-    voice_id: settings?.default_voice_id || null,
-    voice_name: settings?.default_voice_name || null,
+    ...(settings?.free_only !== 'off' && settings?.default_voice_provider === 'openai'
+      ? { provider: settings?.tts_provider || 'piper', voice_id: null, voice_name: null }
+      : { provider: settings?.default_voice_provider || settings?.tts_provider || 'piper', voice_id: settings?.default_voice_id || null, voice_name: settings?.default_voice_name || null }),
     speed: Number(settings?.default_voice_speed) || 1,
     stability: 0.5, style: 0, tone: '', language: settings?.language || 'es',
   },
